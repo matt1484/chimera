@@ -1,0 +1,64 @@
+package chimera
+
+import (
+	"net/http"
+	"reflect"
+)
+
+// RequestReader is used to allow chimera to automatically read/parse requests
+// as well as describe the parts of a request via openapi
+type RequestReader interface {
+	ReadRequest(*http.Request) error
+	OpenAPISpecifier[RequestSpec]
+}
+
+// RequestReaderPtr is just a workaround to allow chimera to accept a pointer
+// to a RequestReader and convert to the underlying type
+type RequestReaderPtr[T any] interface {
+	RequestReader
+	*T
+}
+
+// EmptyRequest is an empty request, effectively a no-op
+// (mostly used for GET requests)
+type EmptyRequest struct{}
+
+// ReadRequest does nothing
+func (*EmptyRequest) ReadRequest(*http.Request) error {
+	return nil
+}
+
+// OpenAPISpec returns an empty RequestSpec
+func (*EmptyRequest) OpenAPISpec() RequestSpec {
+	return RequestSpec{}
+}
+
+// NoBodyRequest is a request with only parameters and an empty body
+// (mostly used for GET requests)
+type NoBodyRequest[Params any] struct {
+	Params Params
+}
+
+// ReadRequest parses the params of the request
+func (r *NoBodyRequest[Params]) ReadRequest(req *http.Request) error {
+	r.Params = *new(Params)
+	if _, ok := any(r.Params).(Nil); !ok {
+		err := UnmarshalParams(req, &r.Params)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// OpenAPISpec returns the parameter definitions of this object
+func (r *NoBodyRequest[Params]) OpenAPISpec() RequestSpec {
+	schema := RequestSpec{}
+	pType := reflect.TypeOf(new(Params))
+	for ; pType.Kind() == reflect.Pointer; pType = pType.Elem() {
+	}
+	if pType != reflect.TypeOf(Nil{}) {
+		schema.Parameters = CacheRequestParamsType(pType)
+	}
+	return schema
+}
