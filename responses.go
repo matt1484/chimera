@@ -120,13 +120,13 @@ func (w *httpResponseWriter) WriteHeader(s int) {
 // undefined response needs to be returned
 type Response struct {
 	StatusCode int
-	Header     http.Header
+	Headers    http.Header
 	Body       []byte
 }
 
 // WriteResponse writes the exact body, headers, and status code
 func (r *Response) WriteResponse(w http.ResponseWriter) error {
-	for k, v := range r.Header {
+	for k, v := range r.Headers {
 		for _, h := range v {
 			w.Header().Add(k, h)
 		}
@@ -143,10 +143,34 @@ func (r *Response) OpenAPISpec() Responses {
 	return Responses{}
 }
 
+// Write stores the body in the Reponse object for use later
+func (r *Response) Write(body []byte) (int, error) {
+	r.Body = body
+	return len(body), nil
+}
+
+// WriteHeader stores the status code in the Reponse object for use later
+func (r *Response) WriteHeader(status int) {
+	r.StatusCode = status
+}
+
+// Header returns the current header for http.ResponseWriter compatibility
+func (r *Response) Header() http.Header {
+	return r.Headers
+}
+
+// NewResponse creates a response with the body, status, and header
 func NewResponse(body []byte, statusCode int, header http.Header) *Response {
 	return &Response{
 		Body:       body,
 		StatusCode: statusCode,
-		Header:     header,
+		Headers:    header,
 	}
+}
+
+// NewResponse copies the response from a ResponseWriter using its WriteResponse method
+func NewResponseFromResponseWriter(w ResponseWriter) (*Response, error) {
+	resp := Response{}
+	err := w.WriteResponse(&resp)
+	return &resp, err
 }
