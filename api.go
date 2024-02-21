@@ -40,7 +40,7 @@ type API struct {
 	openAPISpec OpenAPI
 	router      *chi.Mux
 	routes      []Route
-	middlewares []MiddlewareFunc
+	middleware  []MiddlewareFunc
 	subAPIs     []*API
 	basePath    string
 	prime       *API
@@ -48,16 +48,16 @@ type API struct {
 }
 
 // OpenAPISpec returns the underlying OpenAPI structure for this API
-func (api *API) OpenAPISpec() *OpenAPI {
-	return &api.openAPISpec
+func (a *API) OpenAPISpec() *OpenAPI {
+	return &a.openAPISpec
 }
 
 // ServeHTTP serves to implement support for the standard library
-func (api *API) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (a *API) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	customWriter := httpResponseWriter{
 		writer: w,
 	}
-	api.router.ServeHTTP(&customWriter, req)
+	a.router.ServeHTTP(&customWriter, req)
 	if customWriter.respError != nil {
 		if err, ok := customWriter.respError.(APIError); ok {
 			if err.StatusCode != 0 {
@@ -72,7 +72,6 @@ func (api *API) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				}
 			}
 		} else {
-			fmt.Println(customWriter.respError)
 			customWriter.writer.WriteHeader(500)
 			customWriter.Write(default500Error)
 		}
@@ -103,11 +102,11 @@ func (api *API) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // Start uses http.ListenAndServe to start serving requests from addr
-func (api *API) Start(addr string) {
-	http.ListenAndServe(addr, api)
+func (a *API) Start(addr string) {
+	http.ListenAndServe(addr, a)
 }
 
-// NewAPI return an initialized API object
+// NewAPI returns an initialized API object
 func NewAPI() *API {
 	api := API{
 		router: chi.NewRouter(),
@@ -321,8 +320,8 @@ func (a *API) Static(apiPath, filesPath string) {
 }
 
 // Use adds middleware to the API
-func (a *API) Use(middlewares ...MiddlewareFunc) {
-	a.middlewares = append(a.middlewares, middlewares...)
+func (a *API) Use(middleware ...MiddlewareFunc) {
+	a.middleware = append(a.middleware, middleware...)
 	if a.prime == nil {
 		a.rebuildRouter()
 	} else {
@@ -357,7 +356,7 @@ func (a *API) Group(basePath string) *API {
 func (a *API) rebuildRouter() chi.Router {
 	apiSpec := a.openAPISpec
 	router := chi.NewRouter()
-	for _, middleware := range a.middlewares {
+	for _, middleware := range a.middleware {
 		router.Use(
 			func(next http.Handler) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -299,7 +299,7 @@ func TestInvalidParams(t *testing.T) {
 	assert.NoError(t, err)
 	server.Close()
 	assert.Equal(t, resp.StatusCode, 422)
-	assert.Nil(t, *primCookie)
+	assert.Nil(t, *primQuery)
 
 	type SliceInvalidQuery struct {
 		Param []bool `param:"req,in=query,required"`

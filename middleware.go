@@ -2,7 +2,7 @@ package chimera
 
 import "net/http"
 
-// NextFunc is the format for allowing middleware to continue to child middlewares
+// NextFunc is the format for allowing middleware to continue to child middleware
 type NextFunc func(req *http.Request) (ResponseWriter, error)
 
 // MiddlewareFunc is a function that can be used as middleware

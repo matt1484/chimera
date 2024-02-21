@@ -114,3 +114,39 @@ func (w *httpResponseWriter) WriteHeader(s int) {
 	w.respCode = 0
 	w.writer.WriteHeader(s)
 }
+
+// Response is a simple response type to support creating responses on the fly
+// it is mostly useful for middleware where execution needs to halt and an
+// undefined response needs to be returned
+type Response struct {
+	StatusCode int
+	Header     http.Header
+	Body       []byte
+}
+
+// WriteResponse writes the exact body, headers, and status code
+func (r *Response) WriteResponse(w http.ResponseWriter) error {
+	for k, v := range r.Header {
+		for _, h := range v {
+			w.Header().Add(k, h)
+		}
+	}
+	if r.StatusCode > 0 {
+		w.WriteHeader(r.StatusCode)
+	}
+	_, err := w.Write(r.Body)
+	return err
+}
+
+// OpenAPISpec returns an empty Responses object
+func (r *Response) OpenAPISpec() Responses {
+	return Responses{}
+}
+
+func NewResponse(body []byte, statusCode int, header http.Header) *Response {
+	return &Response{
+		Body:       body,
+		StatusCode: statusCode,
+		Header:     header,
+	}
+}
