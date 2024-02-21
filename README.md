@@ -31,9 +31,9 @@ type TestParams struct {
 func main() {
     api := chimera.NewAPI()
     api.Use(func(req *http.Request, next chimera.NextFunc) (chimera.ResponseWriter, error) {
-		resp, err := next(req)
-		return resp, err
-	})
+        resp, err := next(req)
+        return resp, err
+    })
     chimera.Get(api, "/test/{path}", func(req *chimera.JSONRequest[TestBody, TestParams]) (*chimera.JSONResponse[TestBody, chimera.Nil], error) {
         return &chimera.JSONResponse[TestBody, TestParams]{
             Body: req.Body,
