@@ -5,6 +5,11 @@ import (
 	"reflect"
 )
 
+var (
+	_ RequestReader = new(EmptyRequest)
+	_ RequestReader = new(NoBodyRequest[Nil])
+)
+
 // RequestReader is used to allow chimera to automatically read/parse requests
 // as well as describe the parts of a request via openapi
 type RequestReader interface {

@@ -11,6 +11,11 @@ import (
 	"github.com/invopop/jsonschema"
 )
 
+var (
+	_ RequestReader  = new(JSONRequest[Nil, Nil])
+	_ ResponseWriter = new(JSONResponse[Nil, Nil])
+)
+
 // JSONRequest[Body, Params any] is a request type that decodes json request bodies to a
 // user-defined struct for the Body and Params
 type JSONRequest[Body, Params any] struct {

@@ -9,6 +9,11 @@ import (
 	"github.com/invopop/jsonschema"
 )
 
+var (
+	_ RequestReader  = new(PlainTextRequest[Nil])
+	_ ResponseWriter = new(PlainTextResponse[Nil])
+)
+
 // PlainTextRequest is any text/plain request that results in a string body
 type PlainTextRequest[Params any] struct {
 	request *http.Request

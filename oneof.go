@@ -16,8 +16,9 @@ type ResponseStructTag struct {
 }
 
 var (
-	responseTagCache, _ = spectagular.NewFieldTagCache[ResponseStructTag]("response")
-	responseWriterType  = reflect.TypeOf((*ResponseWriter)(nil)).Elem()
+	_                   ResponseWriter = new(OneOfResponse[Nil])
+	responseTagCache, _                = spectagular.NewFieldTagCache[ResponseStructTag]("response")
+	responseWriterType                 = reflect.TypeOf((*ResponseWriter)(nil)).Elem()
 )
 
 // OneOfResponse[ResponseType any] is a response that uses the fields of

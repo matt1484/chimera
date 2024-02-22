@@ -5,6 +5,12 @@ import (
 	"reflect"
 )
 
+var (
+	_ ResponseWriter = new(EmptyResponse)
+	_ ResponseWriter = new(NoBodyResponse[Nil])
+	_ ResponseWriter = new(Response)
+)
+
 // ResponseWriter allows chimera to automatically write responses
 type ResponseWriter interface {
 	WriteResponse(http.ResponseWriter, RouteContext) error

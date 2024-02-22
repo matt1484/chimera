@@ -9,6 +9,11 @@ import (
 	"github.com/invopop/jsonschema"
 )
 
+var (
+	_ RequestReader  = new(BinaryRequest[Nil])
+	_ ResponseWriter = new(BinaryResponse[Nil])
+)
+
 // BinaryRequest[Params any] is a request type that uses a
 // []byte as the Body and Params as an user-provided struct
 type BinaryRequest[Params any] struct {
