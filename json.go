@@ -27,7 +27,7 @@ func (r *JSONRequest[Body, Params]) Context() context.Context {
 // ReadRequest reads the body of an http request and assigns it to the Body field using json.Unmarshal
 // This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
 // NOTE: the body of the request is closed after this function is run.
-func (r *JSONRequest[Body, Params]) ReadRequest(req *http.Request) error {
+func (r *JSONRequest[Body, Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
 	defer req.Body.Close()
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -142,9 +142,10 @@ type JSONResponse[Body, Params any] struct {
 }
 
 // WriteResponse writes the response and content-type header, it does not write the status code
-func (r *JSONResponse[Body, Params]) WriteResponse(w http.ResponseWriter) error {
+func (r *JSONResponse[Body, Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
 	w.Header().Add("Content-Type", "application/json")
 	if r == nil {
+		w.WriteHeader(ctx.DefaultResponseCode())
 		return nil
 	} else {
 		h, err := MarshalParams(&r.Params)
@@ -156,6 +157,7 @@ func (r *JSONResponse[Body, Params]) WriteResponse(w http.ResponseWriter) error 
 				w.Header().Add(k, x)
 			}
 		}
+		w.WriteHeader(ctx.DefaultResponseCode())
 		b, err := json.Marshal(&r.Body)
 		if err != nil {
 			return err

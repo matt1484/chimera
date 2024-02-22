@@ -31,7 +31,7 @@ func (r *FormRequest[Body, Params]) Context() context.Context {
 // http.Request.ParseForm and the "go-playground/form" package.
 // This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
 // NOTE: the body of the request is closed after this function is run.
-func (r *FormRequest[Body, Params]) ReadRequest(req *http.Request) error {
+func (r *FormRequest[Body, Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
 	defer req.Body.Close()
 	err := req.ParseForm()
 	if err != nil {

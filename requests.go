@@ -8,7 +8,7 @@ import (
 // RequestReader is used to allow chimera to automatically read/parse requests
 // as well as describe the parts of a request via openapi
 type RequestReader interface {
-	ReadRequest(*http.Request) error
+	ReadRequest(*http.Request, RouteContext) error
 	OpenAPISpecifier[RequestSpec]
 }
 
@@ -24,7 +24,7 @@ type RequestReaderPtr[T any] interface {
 type EmptyRequest struct{}
 
 // ReadRequest does nothing
-func (*EmptyRequest) ReadRequest(*http.Request) error {
+func (*EmptyRequest) ReadRequest(*http.Request, RouteContext) error {
 	return nil
 }
 
@@ -40,7 +40,7 @@ type NoBodyRequest[Params any] struct {
 }
 
 // ReadRequest parses the params of the request
-func (r *NoBodyRequest[Params]) ReadRequest(req *http.Request) error {
+func (r *NoBodyRequest[Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
 	r.Params = *new(Params)
 	if _, ok := any(r.Params).(Nil); !ok {
 		err := UnmarshalParams(req, &r.Params)

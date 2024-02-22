@@ -6,8 +6,15 @@ import "net/http"
 type NextFunc func(req *http.Request) (ResponseWriter, error)
 
 // MiddlewareFunc is a function that can be used as middleware
-type MiddlewareFunc func(req *http.Request, next NextFunc) (ResponseWriter, error)
+type MiddlewareFunc func(req *http.Request, ctx RouteContext, next NextFunc) (ResponseWriter, error)
 
 // TODO: add func to wrap and convert a http.Handler to a MiddlewareFunc
-// TODO: allow middleware to read status codes correctly? the problem with lazy writing
-// is that middleware cant get headers/body/response code easily
+
+type middlewareWrapper struct {
+	writer  *httpResponseWriter
+	handler func(w *httpResponseWriter, r *http.Request) (ResponseWriter, error)
+}
+
+func (w *middlewareWrapper) Next(r *http.Request) (ResponseWriter, error) {
+	return w.handler(w.writer, r)
+}

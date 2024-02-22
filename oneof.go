@@ -29,15 +29,14 @@ type OneOfResponse[ResponseType any] struct {
 }
 
 // WriteResponse writes the response, content-type header, and status code using the first non-nil field
-func (r *OneOfResponse[ResponseType]) WriteResponse(w http.ResponseWriter) error {
+func (r *OneOfResponse[ResponseType]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
 	body := reflect.ValueOf(r.Response)
 	tags, _ := responseTagCache.Get(body.Type())
 	for _, tag := range tags {
 		field := body.Field(tag.FieldIndex)
 		if !field.IsNil() {
 			field = fixPointer(field)
-			w.WriteHeader(tag.Value.StatusCode)
-			return field.Interface().(ResponseWriter).WriteResponse(w)
+			return field.Interface().(ResponseWriter).WriteResponse(w, ctx.WithResponseCode(tag.Value.StatusCode))
 		}
 	}
 	return nil

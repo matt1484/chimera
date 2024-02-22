@@ -30,7 +30,7 @@ type TestParams struct {
 
 func main() {
     api := chimera.NewAPI()
-    api.Use(func(req *http.Request, next chimera.NextFunc) (chimera.ResponseWriter, error) {
+    api.Use(func(req *http.Request, ctx chimera.RouteContext, next chimera.NextFunc) (chimera.ResponseWriter, error) {
         resp, err := next(req)
         return resp, err
     })

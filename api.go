@@ -39,11 +39,11 @@ type Nil struct{}
 type API struct {
 	openAPISpec OpenAPI
 	router      *chi.Mux
-	routes      []Route
+	routes      []route
 	middleware  []MiddlewareFunc
 	subAPIs     []*API
 	basePath    string
-	prime       *API
+	parent      *API
 	staticPaths map[string]string
 }
 
@@ -60,43 +60,41 @@ func (a *API) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	a.router.ServeHTTP(&customWriter, req)
 	if customWriter.respError != nil {
 		if err, ok := customWriter.respError.(APIError); ok {
+			for k, vals := range err.Header {
+				for _, v := range vals {
+					customWriter.Header().Add(k, v)
+				}
+			}
 			if err.StatusCode != 0 {
 				customWriter.writer.WriteHeader(err.StatusCode)
 			} else {
 				customWriter.writer.WriteHeader(500)
 			}
 			customWriter.Write(err.Body)
-			for k, vals := range err.Header {
-				for _, v := range vals {
-					customWriter.Header().Add(k, v)
-				}
-			}
 		} else {
 			customWriter.writer.WriteHeader(500)
 			customWriter.Write(default500Error)
 		}
 	} else {
 		// TODO: maybe allow global default response codes for methods?
-		if customWriter.route != nil && customWriter.route.responseCode != 0 {
-			customWriter.respCode = customWriter.route.responseCode
-		} else {
-			switch req.Method {
-			case http.MethodGet:
-			case http.MethodPut:
-			case http.MethodPatch:
-				customWriter.respCode = 200
-			case http.MethodPost:
-				customWriter.respCode = 201
-			case http.MethodOptions:
-			case http.MethodDelete:
-				customWriter.respCode = 204
-			}
-		}
 		if customWriter.response != nil && !reflect.ValueOf(customWriter.response).IsNil() {
-			customWriter.response.WriteResponse(&customWriter)
-		}
-		if customWriter.respCode != 0 {
-			customWriter.WriteHeader(customWriter.respCode)
+			customWriter.response.WriteResponse(&customWriter, customWriter.route.context)
+		} else {
+			if customWriter.route != nil && customWriter.route.context.responseCode != 0 {
+				w.WriteHeader(customWriter.route.context.responseCode)
+			} else {
+				switch req.Method {
+				case http.MethodGet:
+				case http.MethodPut:
+				case http.MethodPatch:
+					w.WriteHeader(200)
+				case http.MethodPost:
+					w.WriteHeader(201)
+				case http.MethodOptions:
+				case http.MethodDelete:
+					w.WriteHeader(204)
+				}
+			}
 		}
 	}
 }
@@ -127,7 +125,7 @@ func NewAPI() *API {
 }
 
 // addRoute creates a route based on method, path, handler, etc.
-func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, method, path string, handler func(ReqPtr) (RespPtr, error)) *Route {
+func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, method, path string, handler func(ReqPtr) (RespPtr, error)) *route {
 	if path == "" || path[0] != '/' {
 		path = "/" + path
 	}
@@ -187,6 +185,9 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 			defaultCode = "200"
 			responseCode = 200
 			delete(operation.Responses, "")
+		} else if len(operation.Responses) == 0 {
+			defaultCode = "200"
+			responseCode = 200
 		}
 		pathSchema.Get = &operation
 	case http.MethodPost:
@@ -195,6 +196,9 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 			defaultCode = "201"
 			responseCode = 201
 			delete(operation.Responses, "")
+		} else if len(operation.Responses) == 0 {
+			defaultCode = "201"
+			responseCode = 201
 		}
 		pathSchema.Post = &operation
 	case http.MethodDelete:
@@ -203,6 +207,9 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 			defaultCode = "204"
 			responseCode = 204
 			delete(operation.Responses, "")
+		} else if len(operation.Responses) == 0 {
+			defaultCode = "204"
+			responseCode = 204
 		}
 		pathSchema.Delete = &operation
 	case http.MethodOptions:
@@ -211,6 +218,9 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 			defaultCode = "204"
 			responseCode = 204
 			delete(operation.Responses, "")
+		} else if len(operation.Responses) == 0 {
+			defaultCode = "204"
+			responseCode = 204
 		}
 		pathSchema.Options = &operation
 	case http.MethodPatch:
@@ -219,6 +229,9 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 			defaultCode = "200"
 			responseCode = 200
 			delete(operation.Responses, "")
+		} else if len(operation.Responses) == 0 {
+			defaultCode = "200"
+			responseCode = 200
 		}
 		pathSchema.Patch = &operation
 	case http.MethodPut:
@@ -227,23 +240,28 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 			defaultCode = "200"
 			responseCode = 200
 			delete(operation.Responses, "")
+		} else if len(operation.Responses) == 0 {
+			defaultCode = "200"
+			responseCode = 200
 		}
 		pathSchema.Put = &operation
 	}
 	api.openAPISpec.Paths[api.basePath+path] = pathSchema
 
-	route := Route{
-		method:        method,
-		path:          path,
+	route := route{
 		operationSpec: &operation,
 		defaultCode:   defaultCode,
-		responseCode:  responseCode,
+		context: &routeContext{
+			responseCode: responseCode,
+			method:       method,
+			path:         path,
+		},
 	}
 	chiHandler := (func(w http.ResponseWriter, r *http.Request) {
 		request := ReqPtr(new(Req))
 		customWriter := w.(*httpResponseWriter)
 		customWriter.route = &route
-		customWriter.respError = request.ReadRequest(r)
+		customWriter.respError = request.ReadRequest(r, route.context)
 		if customWriter.respError != nil {
 			return
 		}
@@ -252,47 +270,50 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 	route.handler = chiHandler
 
 	api.routes = append(api.routes, route)
-	if api.prime == nil {
-		api.rebuildRouter()
-	} else {
-		api.prime.rebuildRouter()
-	}
+	rebuildAPI(api)
 	return &route
+}
+
+func rebuildAPI(api *API) {
+	a := api
+	for ; a.parent != nil; a = api.parent {
+	}
+	a.rebuildRouter()
 }
 
 // Get adds a "GET" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Get[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *Route {
+func Get[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
 	return addRoute(api, http.MethodGet, path, handler)
 }
 
 // Post adds a "POST" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Post[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *Route {
+func Post[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
 	return addRoute(api, http.MethodPost, path, handler)
 }
 
 // Put adds a "PUT" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Put[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *Route {
+func Put[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
 	return addRoute(api, http.MethodPut, path, handler)
 }
 
 // Patch adds a "PATCH" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Patch[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *Route {
+func Patch[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
 	return addRoute(api, http.MethodPatch, path, handler)
 }
 
 // Delete adds a "DELETE" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Delete[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *Route {
+func Delete[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
 	return addRoute(api, http.MethodDelete, path, handler)
 }
 
 // Options adds a "OPTIONS" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Options[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *Route {
+func Options[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
 	return addRoute(api, http.MethodOptions, path, handler)
 }
 
@@ -312,21 +333,13 @@ func (a *API) Static(apiPath, filesPath string) {
 		apiPath += "/"
 	}
 	a.staticPaths[apiPath+"*"] = filesPath
-	if a.prime == nil {
-		a.rebuildRouter()
-	} else {
-		a.prime.rebuildRouter()
-	}
+	rebuildAPI(a)
 }
 
 // Use adds middleware to the API
 func (a *API) Use(middleware ...MiddlewareFunc) {
 	a.middleware = append(a.middleware, middleware...)
-	if a.prime == nil {
-		a.rebuildRouter()
-	} else {
-		a.prime.rebuildRouter()
-	}
+	rebuildAPI(a)
 }
 
 // Group creates a sub-API with seperate middleware and routes using a base path.
@@ -341,11 +354,7 @@ func (a *API) Group(basePath string) *API {
 	}
 	newSub := NewAPI()
 	newSub.basePath = basePath
-	if a.prime == nil {
-		newSub.prime = a
-	} else {
-		newSub.prime = a.prime
-	}
+	newSub.parent = a
 	a.subAPIs = append(a.subAPIs, newSub)
 	return newSub
 }
@@ -354,24 +363,11 @@ func (a *API) Group(basePath string) *API {
 // but at least this allows us to specify middleware/routes/groups in any order
 // while still having a guaranteed final order
 func (a *API) rebuildRouter() chi.Router {
+	var schema []byte
 	apiSpec := a.openAPISpec
 	router := chi.NewRouter()
-	for _, middleware := range a.middleware {
-		router.Use(
-			func(next http.Handler) http.Handler {
-				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					customWriter := w.(*httpResponseWriter)
-					customNext := (func(r *http.Request) (ResponseWriter, error) {
-						next.ServeHTTP(w, r)
-						return customWriter.response, customWriter.respError
-					})
-					customWriter.response, customWriter.respError = middleware(r, customNext)
-				})
-			},
-		)
-	}
-	if a.prime == nil {
-		var schema []byte
+
+	if a.parent == nil {
 		router.MethodFunc(http.MethodGet, "/openapi.json", func(w http.ResponseWriter, r *http.Request) {
 			if schema == nil {
 				schema, _ = json.Marshal(a.openAPISpec)
@@ -397,11 +393,41 @@ func (a *API) rebuildRouter() chi.Router {
 		fileServer := http.FileServer(http.Dir(filesPath))
 		router.Get(apiPath+"*", http.StripPrefix(apiPath, fileServer).ServeHTTP)
 	}
+
+	middlewareChain := make([]MiddlewareFunc, 0)
+	for api := a; api != nil; api = api.parent {
+		middlewareChain = append(api.middleware, middlewareChain...)
+	}
+	handler := func(w *httpResponseWriter, r *http.Request) (ResponseWriter, error) {
+		w.route.handler(w, r)
+		return w.response, w.respError
+	}
+
+	for i := len(middlewareChain) - 1; i >= 0; i-- {
+		h := handler
+		middleware := middlewareChain[i]
+		handler = (func(w *httpResponseWriter, r *http.Request) (ResponseWriter, error) {
+			wrapped := middlewareWrapper{
+				writer:  w,
+				handler: h,
+			}
+			return middleware(r, w.route.context, wrapped.Next)
+		})
+	}
 	for _, route := range a.routes {
-		if route.path == "" || route.path[0] != '/' {
-			route.path = "/" + route.path
+		if route.context.path == "" || route.context.path[0] != '/' {
+			route.context.path = "/" + route.context.path
 		}
-		router.MethodFunc(route.method, route.path, route.handler)
+		if len(middlewareChain) > 0 {
+			router.MethodFunc(route.context.method, route.context.path, func(w http.ResponseWriter, r *http.Request) {
+				writer := w.(*httpResponseWriter)
+				writer.route = &route
+				handler(writer, r)
+			})
+		} else {
+			router.MethodFunc(route.context.method, route.context.path, route.handler)
+		}
+
 	}
 	a.router = router
 	return router

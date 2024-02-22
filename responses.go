@@ -7,7 +7,7 @@ import (
 
 // ResponseWriter allows chimera to automatically write responses
 type ResponseWriter interface {
-	WriteResponse(http.ResponseWriter) error
+	WriteResponse(http.ResponseWriter, RouteContext) error
 	OpenAPISpecifier[Responses]
 }
 
@@ -22,8 +22,9 @@ type ResponseWriterPtr[T any] interface {
 // (mostly used for DELETE requests)
 type EmptyResponse struct{}
 
-// WriteResponse does nothing
-func (*EmptyResponse) WriteResponse(w http.ResponseWriter) error {
+// WriteResponse just writes the default status code and no body/headers
+func (*EmptyResponse) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
+	w.WriteHeader(ctx.DefaultResponseCode())
 	return nil
 }
 
@@ -32,14 +33,14 @@ func (*EmptyResponse) OpenAPISpec() Responses {
 	return Responses{}
 }
 
-// EmptyResponse is a response with no body, but has parameters
+// NoBodyResponse is a response with no body, but has parameters
 // (mostly used for DELETE requests)
 type NoBodyResponse[Params any] struct {
 	Params Params
 }
 
 // WriteResponse writes the reponse headers (but not status code)
-func (r *NoBodyResponse[Params]) WriteResponse(w http.ResponseWriter) error {
+func (r *NoBodyResponse[Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
 	h, err := MarshalParams(&r.Params)
 	if err != nil {
 		return err
@@ -49,6 +50,7 @@ func (r *NoBodyResponse[Params]) WriteResponse(w http.ResponseWriter) error {
 			w.Header().Add(k, x)
 		}
 	}
+	w.WriteHeader(ctx.DefaultResponseCode())
 	return nil
 }
 
@@ -91,8 +93,7 @@ type httpResponseWriter struct {
 	writer    http.ResponseWriter
 	respError error
 	response  ResponseWriter
-	route     *Route
-	respCode  int
+	route     *route
 }
 
 // Header returns the response headers
@@ -102,16 +103,11 @@ func (w *httpResponseWriter) Header() http.Header {
 
 // Write writes to the response body
 func (w *httpResponseWriter) Write(b []byte) (int, error) {
-	if w.respCode != 0 {
-		w.WriteHeader(w.respCode)
-	}
-	w.respCode = 0
 	return w.writer.Write(b)
 }
 
 // WriteHeader sets the status code
 func (w *httpResponseWriter) WriteHeader(s int) {
-	w.respCode = 0
 	w.writer.WriteHeader(s)
 }
 
@@ -125,7 +121,7 @@ type Response struct {
 }
 
 // WriteResponse writes the exact body, headers, and status code
-func (r *Response) WriteResponse(w http.ResponseWriter) error {
+func (r *Response) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
 	for k, v := range r.Headers {
 		for _, h := range v {
 			w.Header().Add(k, h)
@@ -133,6 +129,8 @@ func (r *Response) WriteResponse(w http.ResponseWriter) error {
 	}
 	if r.StatusCode > 0 {
 		w.WriteHeader(r.StatusCode)
+	} else {
+		w.WriteHeader(ctx.DefaultResponseCode())
 	}
 	_, err := w.Write(r.Body)
 	return err
@@ -145,7 +143,11 @@ func (r *Response) OpenAPISpec() Responses {
 
 // Write stores the body in the Reponse object for use later
 func (r *Response) Write(body []byte) (int, error) {
-	r.Body = body
+	if r.Body == nil {
+		r.Body = body
+	} else {
+		r.Body = append(r.Body, body...)
+	}
 	return len(body), nil
 }
 
@@ -168,9 +170,9 @@ func NewResponse(body []byte, statusCode int, header http.Header) *Response {
 	}
 }
 
-// NewResponse copies the response from a ResponseWriter using its WriteResponse method
-func NewResponseFromResponseWriter(w ResponseWriter) (*Response, error) {
+// RecordResponse copies the response from a ResponseWriter using its WriteResponse method and context
+func RecordResponse(w ResponseWriter, ctx RouteContext) (*Response, error) {
 	resp := Response{}
-	err := w.WriteResponse(&resp)
+	err := w.WriteResponse(&resp, ctx)
 	return &resp, err
 }
