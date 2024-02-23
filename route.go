@@ -131,3 +131,16 @@ func (r *route) UsingOperation(op Operation) Route {
 	r.operationSpec = &op
 	return r
 }
+
+// HandlerFunc is a handler function. The generic signature may look odd but its effectively:
+// func(req *RequestReader) (*ResponseWriter, error)
+type HandlerFunc[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any] func(ReqPtr) (RespPtr, error)
+
+// HTTPHandler is a function that converts a standard http.HandlerFunc into one that works with chimera
+func HTTPHandler(handler http.HandlerFunc) HandlerFunc[*Request, Request, *Response, Response] {
+	return func(req *Request) (*Response, error) {
+		response := Response{}
+		handler(&response, (*http.Request)(req))
+		return &response, nil
+	}
+}

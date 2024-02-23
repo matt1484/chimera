@@ -125,7 +125,7 @@ func NewAPI() *API {
 }
 
 // addRoute creates a route based on method, path, handler, etc.
-func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, method, path string, handler func(ReqPtr) (RespPtr, error)) *route {
+func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, method, path string, handler HandlerFunc[ReqPtr, Req, RespPtr, Resp]) *route {
 	if path == "" || path[0] != '/' {
 		path = "/" + path
 	}
@@ -283,40 +283,41 @@ func rebuildAPI(api *API) {
 
 // Get adds a "GET" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Get[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
+func Get[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler HandlerFunc[ReqPtr, Req, RespPtr, Resp]) *route {
 	return addRoute(api, http.MethodGet, path, handler)
 }
 
 // Post adds a "POST" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Post[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
+func Post[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler HandlerFunc[ReqPtr, Req, RespPtr, Resp]) *route {
 	return addRoute(api, http.MethodPost, path, handler)
 }
 
 // Put adds a "PUT" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Put[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
+func Put[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler HandlerFunc[ReqPtr, Req, RespPtr, Resp]) *route {
 	return addRoute(api, http.MethodPut, path, handler)
 }
 
 // Patch adds a "PATCH" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Patch[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
+func Patch[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler HandlerFunc[ReqPtr, Req, RespPtr, Resp]) *route {
 	return addRoute(api, http.MethodPatch, path, handler)
 }
 
 // Delete adds a "DELETE" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Delete[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
+func Delete[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler HandlerFunc[ReqPtr, Req, RespPtr, Resp]) *route {
 	return addRoute(api, http.MethodDelete, path, handler)
 }
 
 // Options adds a "OPTIONS" route to the API object which will invode the handler function on route match
 // it also returns the Route object to allow easy updates of the Operation spec
-func Options[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *route {
+func Options[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler HandlerFunc[ReqPtr, Req, RespPtr, Resp]) *route {
 	return addRoute(api, http.MethodOptions, path, handler)
 }
 
+// Idk what trace even does, do people actually use this?
 // func Trace[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[Resp], Resp any](api *API, path string, handler func(ReqPtr) (RespPtr, error)) *Route {
 // 	return addRoute(api, http.MethodTrace, path, handler)
 // }
