@@ -14,6 +14,8 @@ import (
 var (
 	_ RequestReader  = new(JSONRequest[Nil, Nil])
 	_ ResponseWriter = new(JSONResponse[Nil, Nil])
+	_ RequestReader  = new(JSON[Nil, Nil])
+	_ ResponseWriter = new(JSON[Nil, Nil])
 )
 
 // JSONRequest[Body, Params any] is a request type that decodes json request bodies to a
@@ -26,36 +28,41 @@ type JSONRequest[Body, Params any] struct {
 
 // Context returns the context that was part of the original http.Request
 func (r *JSONRequest[Body, Params]) Context() context.Context {
-	return r.request.Context()
+	if r.request != nil {
+		return r.request.Context()
+	}
+	return nil
+}
+
+func readJSONRequest[Body, Params any](req *http.Request, ctx RouteContext, body *Body, params *Params) error {
+	defer req.Body.Close()
+	b, err := io.ReadAll(req.Body)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := any(body).(*Nil); !ok {
+		err = json.Unmarshal(b, body)
+		if err != nil {
+			return err
+		}
+	}
+
+	if _, ok := any(params).(*Nil); !ok {
+		err = UnmarshalParams(req, params)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ReadRequest reads the body of an http request and assigns it to the Body field using json.Unmarshal
 // This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
 // NOTE: the body of the request is closed after this function is run.
 func (r *JSONRequest[Body, Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
-	defer req.Body.Close()
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		return err
-	}
-
-	r.Body = *new(Body)
-	if _, ok := any(r.Body).(Nil); !ok {
-		err = json.Unmarshal(body, &r.Body)
-		if err != nil {
-			return err
-		}
-	}
-
-	r.Params = *new(Params)
-	if _, ok := any(r.Params).(Nil); !ok {
-		err = UnmarshalParams(req, &r.Params)
-		if err != nil {
-			return err
-		}
-	}
 	r.request = req
-	return nil
+	return readJSONRequest(req, ctx, &r.Body, &r.Params)
 }
 
 // standardizedSchemas basically tries to convert all jsonschema.Schema objects to be mapped
@@ -111,13 +118,11 @@ func standardizedSchemas(schema *jsonschema.Schema, defs map[string]jsonschema.S
 	}
 }
 
-// OpenAPISpec returns the Request definition of a JSONRequest using "invopop/jsonschema"
-func (r *JSONRequest[Body, Params]) OpenAPISpec() RequestSpec {
+func jsonRequestSpec[Body, Params any](schema *RequestSpec) {
 	bType := reflect.TypeOf(new(Body))
 	for ; bType.Kind() == reflect.Pointer; bType = bType.Elem() {
 	}
 
-	schema := RequestSpec{}
 	if bType != reflect.TypeOf(Nil{}) {
 		s := (&jsonschema.Reflector{}).Reflect(new(Body))
 		schema.RequestBody = &RequestBody{
@@ -136,48 +141,9 @@ func (r *JSONRequest[Body, Params]) OpenAPISpec() RequestSpec {
 	if pType != reflect.TypeOf(Nil{}) {
 		schema.Parameters = CacheRequestParamsType(pType)
 	}
-	return schema
 }
 
-// JSONResponse[Body, Params any] is a response type that converts
-// user-provided types to json and marshals params to headers
-type JSONResponse[Body, Params any] struct {
-	Body   Body
-	Params Params
-}
-
-// WriteResponse writes the response and content-type header, it does not write the status code
-func (r *JSONResponse[Body, Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
-	w.Header().Add("Content-Type", "application/json")
-	if r == nil {
-		w.WriteHeader(ctx.DefaultResponseCode())
-		return nil
-	} else {
-		h, err := MarshalParams(&r.Params)
-		if err != nil {
-			return err
-		}
-		for k, v := range h {
-			for _, x := range v {
-				w.Header().Add(k, x)
-			}
-		}
-		w.WriteHeader(ctx.DefaultResponseCode())
-		b, err := json.Marshal(&r.Body)
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(b)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// OpenAPISpec returns the Responses definition of a JSONResponse using "invopop/jsonschema"
-func (r *JSONResponse[Body, Params]) OpenAPISpec() Responses {
-	schema := make(Responses)
+func jsonResponsesSpec[Body, Params any](schema Responses) {
 	bType := reflect.TypeOf(new(Body))
 	for ; bType.Kind() == reflect.Pointer; bType = bType.Elem() {
 	}
@@ -220,6 +186,60 @@ func (r *JSONResponse[Body, Params]) OpenAPISpec() Responses {
 		}
 	}
 	schema[""] = response
+}
+
+// OpenAPIRequestSpec returns the Request definition of a JSONRequest using "invopop/jsonschema"
+func (r *JSONRequest[Body, Params]) OpenAPIRequestSpec() RequestSpec {
+	schema := RequestSpec{}
+	jsonRequestSpec[Body, Params](&schema)
+	return schema
+}
+
+// JSONResponse[Body, Params any] is a response type that converts
+// user-provided types to json and marshals params to headers
+type JSONResponse[Body, Params any] struct {
+	Body   Body
+	Params Params
+}
+
+func writeJSONResponse[Body, Params any](w http.ResponseWriter, ctx RouteContext, body *Body, params *Params) error {
+	w.Header().Add("Content-Type", "application/json")
+
+	h, err := MarshalParams(params)
+	if err != nil {
+		return err
+	}
+	for k, v := range h {
+		for _, x := range v {
+			w.Header().Add(k, x)
+		}
+	}
+	w.WriteHeader(ctx.DefaultResponseCode())
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(b)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// WriteResponse writes the response body, parameters, and response code from context
+func (r *JSONResponse[Body, Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
+	if r == nil {
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(ctx.DefaultResponseCode())
+		return nil
+	}
+	return writeJSONResponse(w, ctx, &r.Body, &r.Params)
+}
+
+// OpenAPIResponsesSpec returns the Responses definition of a JSONResponse using "invopop/jsonschema"
+func (r *JSONResponse[Body, Params]) OpenAPIResponsesSpec() Responses {
+	schema := make(Responses)
+	jsonResponsesSpec[Body, Params](schema)
 	return schema
 }
 
@@ -229,4 +249,53 @@ func NewJSONResponse[Body, Params any](body Body, params Params) *JSONResponse[B
 		Body:   body,
 		Params: params,
 	}
+}
+
+// JSON[Body, Params] is a helper type that effectively works as both a JSONRequest[Body, Params] and JSONResponse[Body, Params]
+// This is mostly here for convenience
+type JSON[Body, Params any] struct {
+	request *http.Request
+	Body    Body
+	Params  Params
+}
+
+// Context returns the context for this request
+// NOTE: this type can also be used for responses in which case Context() would be nil
+func (r *JSON[Body, Params]) Context() context.Context {
+	if r.request != nil {
+		return r.request.Context()
+	}
+	return nil
+}
+
+// ReadRequest reads the body of an http request and assigns it to the Body field using json.Unmarshal
+// This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
+// NOTE: the body of the request is closed after this function is run.
+func (r *JSON[Body, Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
+	r.request = req
+	return readJSONRequest(req, ctx, &r.Body, &r.Params)
+}
+
+// OpenAPIRequestSpec returns the Request definition of a JSON request using "invopop/jsonschema"
+func (r *JSON[Body, Params]) OpenAPIRequestSpec() RequestSpec {
+	schema := RequestSpec{}
+	jsonRequestSpec[Body, Params](&schema)
+	return schema
+}
+
+// WriteResponse writes the response body, parameters, and response code from context
+func (r *JSON[Body, Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
+	if r == nil {
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(ctx.DefaultResponseCode())
+		return nil
+	}
+	return writeJSONResponse(w, ctx, &r.Body, &r.Params)
+}
+
+// OpenAPIResponsesSpec returns the Responses definition of a JSON response using "invopop/jsonschema"
+func (r *JSON[Body, Params]) OpenAPIResponsesSpec() Responses {
+	schema := make(Responses)
+	jsonResponsesSpec[Body, Params](schema)
+	return schema
 }

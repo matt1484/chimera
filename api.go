@@ -130,10 +130,10 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 		path = "/" + path
 	}
 
-	reqSchema := ReqPtr(new(Req)).OpenAPISpec()
+	reqSchema := ReqPtr(new(Req)).OpenAPIRequestSpec()
 	operation := Operation{
 		RequestSpec: &reqSchema,
-		Responses:   RespPtr(new(Resp)).OpenAPISpec(),
+		Responses:   RespPtr(new(Resp)).OpenAPIResponsesSpec(),
 	}
 
 	if reqSchema.RequestBody != nil {

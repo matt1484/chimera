@@ -14,7 +14,7 @@ var (
 // ResponseWriter allows chimera to automatically write responses
 type ResponseWriter interface {
 	WriteResponse(http.ResponseWriter, RouteContext) error
-	OpenAPISpecifier[Responses]
+	OpenAPIResponsesSpec() Responses
 }
 
 // ResponseWriterPtr is just a workaround to allow chimera to accept a pointer
@@ -34,8 +34,8 @@ func (*EmptyResponse) WriteResponse(w http.ResponseWriter, ctx RouteContext) err
 	return nil
 }
 
-// OpenAPISpec returns an empty Responses definition
-func (*EmptyResponse) OpenAPISpec() Responses {
+// OpenAPIResponsesSpec returns an empty Responses definition
+func (*EmptyResponse) OpenAPIResponsesSpec() Responses {
 	return Responses{}
 }
 
@@ -45,7 +45,7 @@ type NoBodyResponse[Params any] struct {
 	Params Params
 }
 
-// WriteResponse writes the reponse headers (but not status code)
+// WriteResponse writes the response headers and response code from context
 func (r *NoBodyResponse[Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
 	h, err := MarshalParams(&r.Params)
 	if err != nil {
@@ -60,8 +60,8 @@ func (r *NoBodyResponse[Params]) WriteResponse(w http.ResponseWriter, ctx RouteC
 	return nil
 }
 
-// OpenAPISpec returns the parameter definitions of this object
-func (r *NoBodyResponse[Params]) OpenAPISpec() Responses {
+// OpenAPIResponsesSpec returns the parameter definitions of this object
+func (r *NoBodyResponse[Params]) OpenAPIResponsesSpec() Responses {
 	schema := make(Responses)
 	pType := reflect.TypeOf(*new(Params))
 	for ; pType.Kind() == reflect.Pointer; pType = pType.Elem() {
@@ -126,7 +126,7 @@ type Response struct {
 	Body       []byte
 }
 
-// WriteResponse writes the exact body, headers, and status code
+// WriteResponse writes the exact body, headers, and status code from the struct
 func (r *Response) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
 	for k, v := range r.Headers {
 		for _, h := range v {
@@ -142,8 +142,8 @@ func (r *Response) WriteResponse(w http.ResponseWriter, ctx RouteContext) error 
 	return err
 }
 
-// OpenAPISpec returns an empty Responses object
-func (r *Response) OpenAPISpec() Responses {
+// OpenAPIResponsesSpec returns an empty Responses object
+func (r *Response) OpenAPIResponsesSpec() Responses {
 	return Responses{}
 }
 

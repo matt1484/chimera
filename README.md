@@ -34,8 +34,8 @@ func main() {
         resp, err := next(req)
         return resp, err
     })
-    chimera.Get(api, "/test/{path}", func(req *chimera.JSONRequest[TestBody, TestParams]) (*chimera.JSONResponse[TestBody, chimera.Nil], error) {
-        return &chimera.JSONResponse[TestBody, TestParams]{
+    chimera.Get(api, "/test/{path}", func(req *chimera.JSON[TestBody, TestParams]) (*chimera.JSON[TestBody, chimera.Nil], error) {
+        return &chimera.JSON[TestBody, TestParams]{
             Body: req.Body,
         }
     })

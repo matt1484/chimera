@@ -29,7 +29,7 @@ type OneOfResponse[ResponseType any] struct {
 	Response ResponseType
 }
 
-// WriteResponse writes the response, content-type header, and status code using the first non-nil field
+// WriteResponse writes the response body, params, and status code using the first non-nil field
 func (r *OneOfResponse[ResponseType]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
 	body := reflect.ValueOf(r.Response)
 	tags, _ := responseTagCache.Get(body.Type())
@@ -43,9 +43,9 @@ func (r *OneOfResponse[ResponseType]) WriteResponse(w http.ResponseWriter, ctx R
 	return nil
 }
 
-// OpenAPISpec returns the Responses definition of a OneOfResponse using all the OpenAPISpec() functions
+// OpenAPIResponsesSpec returns the Responses definition of a OneOfResponse using all the OpenAPIResponsesSpec() functions
 // of the fields in ResponseType
-func (r *OneOfResponse[ResponseType]) OpenAPISpec() Responses {
+func (r *OneOfResponse[ResponseType]) OpenAPIResponsesSpec() Responses {
 	schema := make(Responses)
 	body := reflect.ValueOf(*new(ResponseType))
 	tags, err := responseTagCache.GetOrAdd(body.Type())
@@ -61,7 +61,7 @@ func (r *OneOfResponse[ResponseType]) OpenAPISpec() Responses {
 		if !val.Type().Implements(responseWriterType) {
 			panic("chimera.OneOfResponse[Body]: Body fields MUST implement chimera.ResponseWriter")
 		}
-		resp := val.Interface().(ResponseWriter).OpenAPISpec()
+		resp := val.Interface().(ResponseWriter).OpenAPIResponsesSpec()
 		if v, ok := resp[""]; ok {
 			v.Description = tag.Value.Description
 			resp[fmt.Sprint(tag.Value.StatusCode)] = v

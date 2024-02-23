@@ -12,6 +12,8 @@ import (
 var (
 	_ RequestReader  = new(PlainTextRequest[Nil])
 	_ ResponseWriter = new(PlainTextResponse[Nil])
+	_ RequestReader  = new(PlainText[Nil])
+	_ ResponseWriter = new(PlainText[Nil])
 )
 
 // PlainTextRequest is any text/plain request that results in a string body
@@ -23,35 +25,38 @@ type PlainTextRequest[Params any] struct {
 
 // Context returns the context that was part of the original http.Request
 func (r *PlainTextRequest[Params]) Context() context.Context {
-	return r.request.Context()
+	if r.request != nil {
+		return r.request.Context()
+	}
+	return nil
+}
+
+func readPlainTextRequest[Params any](req *http.Request, ctx RouteContext, body *string, params *Params) error {
+	defer req.Body.Close()
+	b, err := io.ReadAll(req.Body)
+	if err != nil {
+		return err
+	}
+	*body = string(b)
+
+	if _, ok := any(params).(*Nil); !ok {
+		err = UnmarshalParams(req, params)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ReadRequest reads the body of an http request and assigns it to the Body field using io.ReadAll.
 // This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
 // NOTE: the body of the request is closed after this function is run.
 func (r *PlainTextRequest[Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
-	defer req.Body.Close()
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		return err
-	}
-
-	r.Body = string(body)
-
-	r.Params = *new(Params)
-	if _, ok := any(r.Params).(Nil); !ok {
-		err = UnmarshalParams(req, &r.Params)
-		if err != nil {
-			return err
-		}
-	}
 	r.request = req
-	return nil
+	return readPlainTextRequest(req, ctx, &r.Body, &r.Params)
 }
 
-// OpenAPISpec describes the RequestSpec for text/plain requests
-func (r *PlainTextRequest[Params]) OpenAPISpec() RequestSpec {
-	schema := RequestSpec{}
+func textRequestSpec[Params any](schema *RequestSpec) {
 	schema.RequestBody = &RequestBody{
 		Content: map[string]MediaType{
 			"text/plain": {
@@ -68,43 +73,51 @@ func (r *PlainTextRequest[Params]) OpenAPISpec() RequestSpec {
 	if pType != reflect.TypeOf(Nil{}) {
 		schema.Parameters = CacheRequestParamsType(pType)
 	}
+}
+
+// OpenAPIRequestSpec describes the RequestSpec for text/plain requests
+func (r *PlainTextRequest[Params]) OpenAPIRequestSpec() RequestSpec {
+	schema := RequestSpec{}
+	textRequestSpec[Params](&schema)
 	return schema
 }
 
-// PlainTextRequest is any text/plain response that uses a string body
+// PlainTextRequest[Params] is any text/plain response that uses a string body
 type PlainTextResponse[Params any] struct {
 	Body   string
 	Params Params
 }
 
-// WriteResponse writes the response and content-type header, it does not write the status code
-func (r *PlainTextResponse[Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
+func writeTextResponse[Params any](w http.ResponseWriter, ctx RouteContext, body *string, params *Params) error {
 	w.Header().Add("Content-Type", "text/plain")
-	if r == nil {
-		w.WriteHeader(ctx.DefaultResponseCode())
-		return nil
-	} else {
-		h, err := MarshalParams(&r.Params)
-		if err != nil {
-			return err
+	h, err := MarshalParams(params)
+	if err != nil {
+		return err
+	}
+	for k, v := range h {
+		for _, x := range v {
+			w.Header().Add(k, x)
 		}
-		for k, v := range h {
-			for _, x := range v {
-				w.Header().Add(k, x)
-			}
-		}
-		w.WriteHeader(ctx.DefaultResponseCode())
-		_, err = w.Write([]byte(r.Body))
-		if err != nil {
-			return err
-		}
+	}
+	w.WriteHeader(ctx.DefaultResponseCode())
+	_, err = w.Write([]byte(*body))
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
-// OpenAPISpec describes the Responses for text/plain requests
-func (r *PlainTextResponse[Params]) OpenAPISpec() Responses {
-	schema := make(Responses)
+// WriteResponse writes the response body, parameters, and response code from context
+func (r *PlainTextResponse[Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
+	if r == nil {
+		w.Header().Add("Content-Type", "text/plain")
+		w.WriteHeader(ctx.DefaultResponseCode())
+		return nil
+	}
+	return writeTextResponse[Params](w, ctx, &r.Body, &r.Params)
+}
+
+func textResponsesSpec[Params any](schema Responses) {
 	response := ResponseSpec{}
 	response.Content = map[string]MediaType{
 		"text/plain": {
@@ -134,6 +147,12 @@ func (r *PlainTextResponse[Params]) OpenAPISpec() Responses {
 		}
 	}
 	schema[""] = response
+}
+
+// OpenAPIResponsesSpec describes the Responses for text/plain requests
+func (r *PlainTextResponse[Params]) OpenAPIResponsesSpec() Responses {
+	schema := make(Responses)
+	textResponsesSpec[Params](schema)
 	return schema
 }
 
@@ -143,4 +162,52 @@ func NewPlainTextResponse[Params any](body string, params Params) *PlainTextResp
 		Body:   body,
 		Params: params,
 	}
+}
+
+// PlainText[Params] is a helper type that effectively works as both a PlainTextRequest[Params] and PlainTextResponse[Params]
+// This is mostly here for convenience
+type PlainText[Params any] struct {
+	request *http.Request
+	Body    string
+	Params  Params
+}
+
+// Context returns the context that was part of the original http.Request
+func (r *PlainText[Params]) Context() context.Context {
+	if r.request != nil {
+		return r.request.Context()
+	}
+	return nil
+}
+
+// ReadRequest reads the body of an http request and assigns it to the Body field using io.ReadAll.
+// This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
+// NOTE: the body of the request is closed after this function is run.
+func (r *PlainText[Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
+	r.request = req
+	return readPlainTextRequest(req, ctx, &r.Body, &r.Params)
+}
+
+// OpenAPIRequestSpec describes the RequestSpec for text/plain requests
+func (r *PlainText[Params]) OpenAPIRequestSpec() RequestSpec {
+	schema := RequestSpec{}
+	textRequestSpec[Params](&schema)
+	return schema
+}
+
+// WriteResponse writes the response body, parameters, and response code from context
+func (r *PlainText[Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
+	if r == nil {
+		w.Header().Add("Content-Type", "text/plain")
+		w.WriteHeader(ctx.DefaultResponseCode())
+		return nil
+	}
+	return writeTextResponse[Params](w, ctx, &r.Body, &r.Params)
+}
+
+// OpenAPIResponsesSpec describes the Responses for text/plain requests
+func (r *PlainText[Params]) OpenAPIResponsesSpec() Responses {
+	schema := make(Responses)
+	textResponsesSpec[Params](schema)
+	return schema
 }

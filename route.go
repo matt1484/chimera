@@ -57,8 +57,8 @@ type route struct {
 
 // Route contains basic info about an API route and allows for inline editing of itself
 type Route interface {
-	// OpenAPISpec returns the Operation spec for this route
-	OpenAPISpec() *Operation
+	// OpenAPIOperationSpec returns the Operation spec for this route
+	OpenAPIOperationSpec() *Operation
 	// WithResponseCode sets the default response code for this route
 	// NOTE: the first time this is called, the presumption is that default code has been set based on http method
 	WithResponseCode(code int) Route
@@ -76,8 +76,8 @@ type Route interface {
 	UsingOperation(op Operation) Route
 }
 
-// OpenAPISpec returns the Operation spec for this route
-func (r *route) OpenAPISpec() *Operation {
+// OpenAPIOperationSpec returns the Operation spec for this route
+func (r *route) OpenAPIOperationSpec() *Operation {
 	return r.operationSpec
 }
 

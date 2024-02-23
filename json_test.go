@@ -25,7 +25,7 @@ func TestJSONRequestValid(t *testing.T) {
 	assert.NoError(t, err)
 
 	api := chimera.NewAPI()
-	primPath := addRequestTestHandler(t, api, http.MethodPost, testValidSimplePath+testValidLabelPath+testValidMatrixPath, &chimera.JSONRequest[Struct, TestPrimitivePathParams]{Body: body, Params: testPrimitivePathParams})
+	primPath := addRequestTestHandler(t, api, http.MethodPost, testValidSimplePath+testValidLabelPath+testValidMatrixPath, &chimera.JSON[Struct, TestPrimitivePathParams]{Body: body, Params: testPrimitivePathParams})
 	server := httptest.NewServer(api)
 	resp, err := http.Post(server.URL+testValidPrimitiveSimplePathValues+testValidPrimitiveLabelPathValues+testValidPrimitiveMatrixPathValues, "application/json", bytes.NewBuffer(b))
 	server.Close()
@@ -139,7 +139,7 @@ func TestJSONResponseValid(t *testing.T) {
 		Int: 12345,
 	}
 	api := chimera.NewAPI()
-	addResponseTestHandler(t, api, http.MethodGet, "/headertest", &chimera.JSONResponse[Struct, TestPrimitiveHeaderParams]{Body: body, Params: testPrimitiveHeaderParams})
+	addResponseTestHandler(t, api, http.MethodGet, "/headertest", &chimera.JSON[Struct, TestPrimitiveHeaderParams]{Body: body, Params: testPrimitiveHeaderParams})
 	server := httptest.NewServer(api)
 	resp, err := http.Get(server.URL + "/headertest")
 	server.Close()

@@ -14,7 +14,7 @@ var (
 // as well as describe the parts of a request via openapi
 type RequestReader interface {
 	ReadRequest(*http.Request, RouteContext) error
-	OpenAPISpecifier[RequestSpec]
+	OpenAPIRequestSpec() RequestSpec
 }
 
 // RequestReaderPtr is just a workaround to allow chimera to accept a pointer
@@ -33,8 +33,8 @@ func (*EmptyRequest) ReadRequest(*http.Request, RouteContext) error {
 	return nil
 }
 
-// OpenAPISpec returns an empty RequestSpec
-func (*EmptyRequest) OpenAPISpec() RequestSpec {
+// OpenAPIRequestSpec returns an empty RequestSpec
+func (*EmptyRequest) OpenAPIRequestSpec() RequestSpec {
 	return RequestSpec{}
 }
 
@@ -56,8 +56,8 @@ func (r *NoBodyRequest[Params]) ReadRequest(req *http.Request, ctx RouteContext)
 	return nil
 }
 
-// OpenAPISpec returns the parameter definitions of this object
-func (r *NoBodyRequest[Params]) OpenAPISpec() RequestSpec {
+// OpenAPIRequestSpec returns the parameter definitions of this object
+func (r *NoBodyRequest[Params]) OpenAPIRequestSpec() RequestSpec {
 	schema := RequestSpec{}
 	pType := reflect.TypeOf(new(Params))
 	for ; pType.Kind() == reflect.Pointer; pType = pType.Elem() {

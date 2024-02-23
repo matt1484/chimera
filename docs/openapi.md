@@ -7,7 +7,7 @@ When starting a server, the OpenAPI docs are available at `/openapi.json` with a
 ## API Routes
 The `API` struct contains top-level OpenAPI docs that can be retrieved and edited using `API.OpenAPISpec()`.
 Technically sub-apis (a la `API.Group()`) also have an `OpenAPI` object but they get merged in to the main (i.e. top-most parent) `API` object. 
-Each call to `Get`, `Post`, `Patch`, `Put`, `Delete`, `Options` adds an `Operation` to the `OpenAPI` object by using the provided path, associated HTTP method, and the `OpenAPISpec()` functions on the handler's `RequestReader` and `ResponseWriter`. Status code is determined using the following logic:
+Each call to `Get`, `Post`, `Patch`, `Put`, `Delete`, `Options` adds an `Operation` to the `OpenAPI` object by using the provided path, associated HTTP method, and the `OpenAPIRequestSpec()` and `OpenAPIResponsesSpec()` functions on the handler's `RequestReader` and `ResponseWriter` respectively. Status code is determined using the following logic:
 - `Get`, `Patch`, `Put` assumes the default response code is `200` (unless this is explicitly changed on the `Route` object)
 - `Post` assumes the default response code is `204` (unless this is explicitly changed on the `Route` object)
 - `Delete`, `Options` assumes the default response code is `204` (unless this is explicitly changed on the `Route` object)

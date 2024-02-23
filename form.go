@@ -24,7 +24,10 @@ type FormRequest[Body, Params any] struct {
 
 // Context returns the context that was part of the original http.Request
 func (r *FormRequest[Body, Params]) Context() context.Context {
-	return r.request.Context()
+	if r.request != nil {
+		return r.request.Context()
+	}
+	return nil
 }
 
 // ReadRequest reads the body of an http request and assigns it to the Body field using
@@ -87,10 +90,10 @@ func flattenFormSchemas(schema *jsonschema.Schema, properties map[string]*jsonsc
 	}
 }
 
-// OpenAPISpec returns the Request definition of a FormRequest
+// OpenAPIRequestSpec returns the Request definition of a FormRequest
 // It attempts to utilize patternProperties to try to define the body schema
 // i.e. objects/arrays use dotted/bracketed paths X.Y.Z[i]
-func (r *FormRequest[Body, Params]) OpenAPISpec() RequestSpec {
+func (r *FormRequest[Body, Params]) OpenAPIRequestSpec() RequestSpec {
 	bType := reflect.TypeOf(new(Body))
 	for ; bType.Kind() == reflect.Pointer; bType = bType.Elem() {
 	}

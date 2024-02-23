@@ -84,8 +84,8 @@ type ParamStructTag struct {
 	request         bool
 }
 
-// OpenAPISchema returns the Parameter definition of a struct tag
-func (p *ParamStructTag) OpenAPISchema() Parameter {
+// OpenAPIParameterSpec returns the Parameter definition of a struct tag
+func (p *ParamStructTag) OpenAPIParameterSpec() Parameter {
 	in := p.In
 	name := p.Name
 	if !p.request {
@@ -450,7 +450,7 @@ func CacheRequestParamsType(t reflect.Type) []Parameter {
 		}
 		tag.Value.request = true
 		pTag[i] = tag
-		params = append(params, tag.Value.OpenAPISchema())
+		params = append(params, tag.Value.OpenAPIParameterSpec())
 	}
 	return params
 }
@@ -628,7 +628,7 @@ func CacheResponseParamsType(t reflect.Type) []Parameter {
 			}
 		}
 		pTag[i] = tag
-		param := tag.Value.OpenAPISchema()
+		param := tag.Value.OpenAPIParameterSpec()
 		if tag.Value.In == CookieIn {
 			param.Name = strings.Repeat("\000", cookieCount) + param.Name
 			cookieCount++

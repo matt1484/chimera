@@ -4,12 +4,6 @@ import (
 	"github.com/invopop/jsonschema"
 )
 
-// OpenAPISpecifier is a generic type that allows a type
-// to specify its own sub-openapi schema (i.e. Request/Responses)
-type OpenAPISpecifier[T RequestSpec | Responses] interface {
-	OpenAPISpec() T
-}
-
 // OpenAPI is used to store an entire openapi spec
 type OpenAPI struct {
 	OpenAPI           string                `json:"openapi,omitempty"`
