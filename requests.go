@@ -8,6 +8,7 @@ import (
 var (
 	_ RequestReader = new(EmptyRequest)
 	_ RequestReader = new(NoBodyRequest[Nil])
+	_ RequestReader = new(Request)
 )
 
 // RequestReader is used to allow chimera to automatically read/parse requests
@@ -66,4 +67,18 @@ func (r *NoBodyRequest[Params]) OpenAPIRequestSpec() RequestSpec {
 		schema.Parameters = CacheRequestParamsType(pType)
 	}
 	return schema
+}
+
+// Request is just an http.Request that matches the expected interfaces
+type Request http.Request
+
+// ReadRequest assigns the request to the Request struct
+func (r *Request) ReadRequest(req *http.Request, ctx RouteContext) error {
+	*r = Request(*req)
+	return nil
+}
+
+// OpenAPIRequestSpec returns an empty RequestSpec
+func (r *Request) OpenAPIRequestSpec() RequestSpec {
+	return RequestSpec{}
 }
