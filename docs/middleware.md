@@ -3,16 +3,17 @@
 ```golang
 func(req *http.Request, ctx chimera.RouteContext, next func(req *http.Request) (ResponseWriter, error)) (ResponseWriter, error)
 ```
-Effectively this allows handlers to pass lazy-responses (i.e. not yet written) and errors to the middleware to allow easier error handling while still allowing requests and context to be odified before reaching the handler. An example of this would be:
+Effectively this allows handlers to pass lazy-responses (i.e. not yet written) and errors to the middleware to allow easier error handling while still allowing requests and context to be modified before reaching the handler. An example of this would be:
 ```golang
 // Use adds middleware to an api
 api.Use(func(req *http.Request, ctx chimera.RouteContext, next chimera.NextFunc) (chimera.ResponseWriter, error) {
-    // ctx contains basic info about the matched route
-    // middleware can modify the request directly here
+    // ctx contains basic info about the matched route which cant be modified, but can be read
+    // middleware can modify the request directly here before calling next
+    // next invokes the next middleware or handler function
     resp, err := next(req)
     // resp is an interface technically, so it can't be read directly
     // but you could use chimera.RecordResponse(resp, ctx) to get the headers/body/status etc.
-    // err could also be handled more gracfefully here
+    // err could also be handled more gracefully here before making it to the error handler
     return resp, err
 })
 ```

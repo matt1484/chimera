@@ -5,6 +5,10 @@ import (
 	"net/http"
 )
 
+var (
+	_ RouteContext = new(routeContext)
+)
+
 // routeContext contains basic info about a matched Route
 type routeContext struct {
 	path         string
@@ -53,82 +57,73 @@ type route struct {
 	operationSpec *Operation
 	context       *routeContext
 	defaultCode   string
+	hidden        bool
 }
 
 // Route contains basic info about an API route and allows for inline editing of itself
-type Route interface {
-	// OpenAPIOperationSpec returns the Operation spec for this route
-	OpenAPIOperationSpec() *Operation
-	// WithResponseCode sets the default response code for this route
-	// NOTE: the first time this is called, the presumption is that default code has been set based on http method
-	WithResponseCode(code int) Route
-	// WithResponses performs a merge on the operation's responses for this route
-	WithResponses(resp Responses) Route
-	// WithRequest performs a merge on the operation's request spec for this route
-	WithRequest(req RequestSpec) Route
-	// WithOperation performs a merge on the operation's spec for this route
-	WithOperation(op Operation) Route
-	// UsingResponses replaces the operation's responses for this route
-	UsingResponses(resp Responses) Route
-	// UsingRequest replaces the operation's request spec for this route
-	UsingRequest(req RequestSpec) Route
-	// UsingOperation replaces the operation's spec for this route
-	UsingOperation(op Operation) Route
+type Route struct {
+	route *route
 }
 
 // OpenAPIOperationSpec returns the Operation spec for this route
-func (r *route) OpenAPIOperationSpec() *Operation {
-	return r.operationSpec
+func (r Route) OpenAPIOperationSpec() *Operation {
+	return r.route.operationSpec
 }
 
 // WithResponseCode sets the default response code for this route
 // NOTE: the first time this is called, the presumption is that default code has been set based on http method
-func (r *route) WithResponseCode(code int) Route {
-	r.context.responseCode = code
-	if r.operationSpec == nil {
+func (r Route) WithResponseCode(code int) Route {
+	r.route.context.responseCode = code
+	if r.route.operationSpec == nil {
 		return r
 	}
-	if _, ok := r.operationSpec.Responses[r.defaultCode]; ok {
-		r.operationSpec.Responses[fmt.Sprint(code)] = r.operationSpec.Responses[r.defaultCode]
-		delete(r.operationSpec.Responses, r.defaultCode)
-		r.defaultCode = fmt.Sprint(code)
+	if _, ok := r.route.operationSpec.Responses[r.route.defaultCode]; ok {
+		r.route.operationSpec.Responses[fmt.Sprint(code)] = r.route.operationSpec.Responses[r.route.defaultCode]
+		delete(r.route.operationSpec.Responses, r.route.defaultCode)
+		r.route.defaultCode = fmt.Sprint(code)
 	}
 	return r
 }
 
 // WithResponses performs a merge on the operation's responses for this route
-func (r *route) WithResponses(resp Responses) Route {
-	r.operationSpec.Responses.Merge(resp)
+func (r Route) WithResponses(resp Responses) Route {
+	r.route.operationSpec.Responses.Merge(resp)
 	return r
 }
 
 // WithRequest performs a merge on the operation's request spec for this route
-func (r *route) WithRequest(req RequestSpec) Route {
-	r.operationSpec.RequestSpec.Merge(req)
+func (r Route) WithRequest(req RequestSpec) Route {
+	r.route.operationSpec.RequestSpec.Merge(req)
 	return r
 }
 
 // WithOperation performs a merge on the operation's spec for this route
-func (r *route) WithOperation(op Operation) Route {
-	r.operationSpec.Merge(op)
+func (r Route) WithOperation(op Operation) Route {
+	r.route.operationSpec.Merge(op)
 	return r
 }
 
 // UsingResponses replaces the operation's responses for this route
-func (r *route) UsingResponses(resp Responses) Route {
-	r.operationSpec.Responses = resp
+func (r Route) UsingResponses(resp Responses) Route {
+	r.route.operationSpec.Responses = resp
 	return r
 }
 
 // UsingRequest replaces the operation's request spec for this route
-func (r *route) UsingRequest(req RequestSpec) Route {
-	r.operationSpec.RequestSpec = &req
+func (r Route) UsingRequest(req RequestSpec) Route {
+	r.route.operationSpec.RequestSpec = &req
 	return r
 }
 
 // UsingOperation replaces the operation's spec for this route
-func (r *route) UsingOperation(op Operation) Route {
-	r.operationSpec = &op
+func (r Route) UsingOperation(op Operation) Route {
+	r.route.operationSpec = &op
+	return r
+}
+
+// Internalize hides the route from the api spec
+func (r Route) Internalize() Route {
+	r.route.hidden = true
 	return r
 }
 
