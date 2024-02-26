@@ -67,3 +67,7 @@ def test(path: str, header: Annotated[str, Header()] = None, body: TestBody) -> 
     return body
 ```
 Additional docs can be found in the [docs](./docs/overview.md) folder
+
+## TODO
+- Proper XML support
+- Multipart form support
