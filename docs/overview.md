@@ -5,4 +5,8 @@ This folder contains info regarding various part of `chimera`. It is broken up i
 - [Middleware](middleware.md): describes the usage and workflows of middleware
 - [JSON](json.md): covers information regarding JSON requests/responses 
 - [Params](params.md): covers information regarding parameter marshaling/unmarshaling
+- [Requests](requests.md): describes how requests are handled
+- [Responses](responses.md): describes how responses are handled
+- [Text](text.md): convers binary/text based requests and responses
+- [Form](forms.md): covers form requests
 <!-- - [Forms](form.md): covers information regarding form-encoded requests -->
