@@ -24,3 +24,11 @@ The options closely follow the OpenAPI formats but an overview of the options is
 - `deprecated`: marks the param as deprecated  (same as OpenAPI)
 - `allowEmptyValue`: same as OpenAPI
 - `allowReserved`: same as OpenAPI
+
+A complete example of this is:
+```golang
+type Params struct {
+    SomeProp string `param:"propName,in=query,explode,style=form,required,description='this is a param',allowEmptyValue,allowReserved"`
+}
+```
+Each type that supports utilizing param structs would then unmarshal each field using the options provided.
