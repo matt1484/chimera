@@ -71,6 +71,7 @@ func standardizedSchemas(schema *jsonschema.Schema, defs map[string]jsonschema.S
 	if schema == nil {
 		return
 	}
+	schema.ID = ""
 	schema.Version = ""
 	standardizedSchemas(schema.AdditionalProperties, defs)
 	standardizedSchemas(schema.Contains, defs)
@@ -116,6 +117,7 @@ func standardizedSchemas(schema *jsonschema.Schema, defs map[string]jsonschema.S
 		name, _ := strings.CutPrefix(schema.Ref, "#/$defs/")
 		schema.Ref = "#/components/schemas/" + name
 	}
+	schema.ID = ""
 }
 
 func jsonRequestSpec[Body, Params any](schema *RequestSpec) {
@@ -124,7 +126,9 @@ func jsonRequestSpec[Body, Params any](schema *RequestSpec) {
 	}
 
 	if bType != reflect.TypeOf(Nil{}) {
-		s := (&jsonschema.Reflector{}).Reflect(new(Body))
+		s := (&jsonschema.Reflector{
+			// ExpandedStruct: bType.Kind() == reflect.Struct,
+		}).Reflect(new(Body))
 		schema.RequestBody = &RequestBody{
 			Content: map[string]MediaType{
 				"application/json": {
@@ -153,14 +157,8 @@ func jsonResponsesSpec[Body, Params any](schema Responses) {
 		response.Content = map[string]MediaType{
 			"application/json": {
 				Schema: (&jsonschema.Reflector{
-					ExpandedStruct: bType.Kind() == reflect.Struct,
+					// ExpandedStruct: bType.Kind() == reflect.Struct,
 					// DoNotReference: true,
-					Lookup: func(t reflect.Type) jsonschema.ID {
-						if t.PkgPath() == "" {
-							return jsonschema.EmptyID
-						}
-						return jsonschema.ID("#/components/schemas/" + t.Name())
-					},
 				}).Reflect(new(Body)),
 			},
 		}
