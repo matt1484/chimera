@@ -39,7 +39,7 @@ type Nil struct{}
 type API struct {
 	openAPISpec OpenAPI
 	router      *chi.Mux
-	routes      []route
+	routes      []*route
 	middleware  []MiddlewareFunc
 	subAPIs     []*API
 	basePath    string
@@ -100,8 +100,8 @@ func (a *API) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // Start uses http.ListenAndServe to start serving requests from addr
-func (a *API) Start(addr string) {
-	http.ListenAndServe(addr, a)
+func (a *API) Start(addr string) error {
+	return http.ListenAndServe(addr, a)
 }
 
 // NewAPI returns an initialized API object
@@ -256,6 +256,7 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 			method:       method,
 			path:         path,
 		},
+		api: api,
 	}
 	chiHandler := (func(w http.ResponseWriter, r *http.Request) {
 		request := ReqPtr(new(Req))
@@ -269,7 +270,7 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 	})
 	route.handler = chiHandler
 
-	api.routes = append(api.routes, route)
+	api.routes = append(api.routes, &route)
 	rebuildAPI(api)
 	return Route{
 		route: &route,
@@ -453,7 +454,7 @@ func (a *API) rebuildRouter() chi.Router {
 		if len(middlewareChain) > 0 {
 			router.MethodFunc(route.context.method, route.context.path, func(w http.ResponseWriter, r *http.Request) {
 				writer := w.(*httpResponseWriter)
-				writer.route = &route
+				writer.route = route
 				handler(writer, r)
 			})
 		} else {

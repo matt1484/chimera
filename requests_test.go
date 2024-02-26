@@ -327,3 +327,13 @@ func TestInvalidParams(t *testing.T) {
 	assert.Equal(t, resp.StatusCode, 422)
 	assert.Nil(t, *structQuery)
 }
+
+func TestOpenAPI(t *testing.T) {
+	api := chimera.NewAPI()
+	route := chimera.Get(api, "/testopenapi", func(*chimera.EmptyRequest) (*chimera.EmptyResponse, error) {
+		return nil, nil
+	})
+	assert.Contains(t, api.OpenAPISpec().Paths, "/testopenapi")
+	route.Internalize()
+	assert.NotContains(t, api.OpenAPISpec().Paths, "/testopenapi")
+}

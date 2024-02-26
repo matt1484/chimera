@@ -58,6 +58,7 @@ type route struct {
 	context       *routeContext
 	defaultCode   string
 	hidden        bool
+	api           *API
 }
 
 // Route contains basic info about an API route and allows for inline editing of itself
@@ -124,6 +125,7 @@ func (r Route) UsingOperation(op Operation) Route {
 // Internalize hides the route from the api spec
 func (r Route) Internalize() Route {
 	r.route.hidden = true
+	rebuildAPI(r.route.api)
 	return r
 }
 
