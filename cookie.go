@@ -12,7 +12,7 @@ var (
 
 // CookieParamUnmarshaler is an interface that supports converting an http.Cookie to a user-defined type
 type CookieParamUnmarshaler interface {
-	UnmarshalCookieParam(http.Cookie) error
+	UnmarshalCookieParam(http.Cookie, ParamStructTag) error
 }
 
 // CookieParamMarshaler is an interface that supports converting a user-defined type to an http.Cookie
@@ -24,7 +24,7 @@ type CookieParamMarshaler interface {
 func unmarshalCookieParam(param http.Cookie, tag *ParamStructTag, addr reflect.Value) error {
 	addr = fixPointer(addr)
 	if tag.schemaType == interfaceType {
-		return addr.Interface().(CookieParamUnmarshaler).UnmarshalCookieParam(param)
+		return addr.Interface().(CookieParamUnmarshaler).UnmarshalCookieParam(param, *tag)
 	}
 	return unmarshalStringParam(param.Value, tag, addr)
 }

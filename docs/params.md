@@ -33,3 +33,12 @@ type Params struct {
 ```
 Each type that supports utilizing param structs would then unmarshal each field using the options provided.
 Its important to note that fields that are `struct` types utilize the `prop` struct tag to determine the name of the sub properties of a param but cant provide any additional options for validation.
+
+## Customizing
+To support customization of param marshaling/unmarshaling the following functions can be implemented:
+- `UnmarshalCookieParam(http.Cookie, ParamStructTag) error`
+- `MarshalCookieParam(ParamStructTag) (http.Cookie, error)`
+- `UnmarshalHeaderParam([]string, ParamStructTag) error`
+- `MarshalHeaderParam(ParamStructTag) (http.Header, error)`
+- `UnmarshalPathParam(string, ParamStructTag) error`
+- `UnmarshalQueryParam(url.Values, ParamStructTag) error`
