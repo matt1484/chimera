@@ -9,6 +9,7 @@ There are also some additional things of note:
 - `/openapi.json` and `/docs*` are used for OpenAPI docs but can be overwritten
 - Any errors returned during middleware/handlers are returned as generic 500s unless they are of type `APIError` which allows you to customize the response
 - Writing of responses is lazy which means it wont happen until all middleware are ran
+- There is a `HTTPHandler()` function which can be used to convert a normal `http.HandlerFunc` to the expected handler for routes.
 
 ## Operation spec
 All routes have an associated `Operation` spec (as per OpenAPI) which can be edited inline via a few helper functions:
