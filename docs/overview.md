@@ -8,5 +8,5 @@ This folder contains info regarding various part of `chimera`. It is broken up i
 - [Requests](requests.md): describes how requests are handled
 - [Responses](responses.md): describes how responses are handled
 - [Text](text.md): convers binary/text based requests and responses
-- [Form](forms.md): covers form requests
+- [Form](form.md): covers form requests
 <!-- - [Forms](form.md): covers information regarding form-encoded requests -->

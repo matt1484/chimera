@@ -6,7 +6,7 @@
 
 An example of how to use JSON in chimera is:
 ```golang
-chimera.Post(api, "/route", func(req *JSON[Body, Params]) (*JSON[Body, Params], error) {
+chimera.Post(api, "/route", func(req *chimera.JSON[Body, Params]) (*chimera.JSON[Body, Params], error) {
     // req contains an already parsed JSON body
     // any returned response will marshal as JSON before writing the body
     return nil, nil
