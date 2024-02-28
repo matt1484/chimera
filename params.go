@@ -231,7 +231,7 @@ type paramProp struct {
 	fieldIndex int
 }
 
-// paramPropTag is just an easy way to the first part of a struct tag
+// paramPropTag is just an easy way to get the first part of a struct tag
 type paramPropTag struct {
 	Name string `structtag:"$name"`
 }
@@ -244,7 +244,7 @@ var (
 // fixPointer initializes pointer objects and returns the lowest level one
 // (I really doubt people are out here making types like ****int but Ive seen jank code in my day)
 func fixPointer(value reflect.Value) reflect.Value {
-	if value.Elem().Type().Kind() == reflect.Pointer {
+	if value.Elem().Kind() == reflect.Pointer {
 		i := 0
 		t := value.Type()
 		for ; t.Kind() == reflect.Pointer; t = t.Elem() {
@@ -272,6 +272,9 @@ func CacheRequestParamsType(t reflect.Type) []Parameter {
 	}
 	v := reflect.New(t)
 	for i, tag := range pTag {
+		if tag.Value.Name == spectagular.EmptyTag || tag.Value.Name == spectagular.SkipTag {
+			continue
+		}
 		t := v.Elem().Field(tag.FieldIndex).Addr()
 		t = fixPointer(t)
 		switch tag.Value.In {
@@ -330,6 +333,9 @@ func CacheRequestParamsType(t reflect.Type) []Parameter {
 			tag.Value.schema = schema
 			fieldTags, _ := spectagular.ParseTagsForType[paramPropTag]("prop", t.Elem().Type())
 			for _, ft := range fieldTags {
+				if tag.Value.Name == spectagular.EmptyTag || tag.Value.Name == spectagular.SkipTag {
+					continue
+				}
 				v := t.Elem().Field(ft.FieldIndex).Addr()
 				v = fixPointer(v)
 				field := t.Elem().Type().Field(ft.FieldIndex)
@@ -467,6 +473,9 @@ func UnmarshalParams(request *http.Request, obj any) error {
 	}
 	reqCtx := chi.RouteContext(request.Context())
 	for _, tag := range paramTags {
+		if tag.Value.Name == spectagular.EmptyTag || tag.Value.Name == spectagular.SkipTag {
+			continue
+		}
 		addr := value.Field(tag.FieldIndex).Addr()
 		switch tag.Value.In {
 		case PathIn:
@@ -512,6 +521,9 @@ func CacheResponseParamsType(t reflect.Type) []Parameter {
 	v := reflect.New(t)
 	cookieCount := 0
 	for i, tag := range pTag {
+		if tag.Value.Name == spectagular.EmptyTag || tag.Value.Name == spectagular.SkipTag {
+			continue
+		}
 		t := v.Elem().Field(tag.FieldIndex).Addr()
 		t = fixPointer(t)
 		switch tag.Value.In {
@@ -560,6 +572,9 @@ func CacheResponseParamsType(t reflect.Type) []Parameter {
 			tag.Value.schema = schema
 			fieldTags, _ := spectagular.ParseTagsForType[paramPropTag]("prop", t.Elem().Type())
 			for _, ft := range fieldTags {
+				if tag.Value.Name == spectagular.EmptyTag || tag.Value.Name == spectagular.SkipTag {
+					continue
+				}
 				v := t.Elem().Field(ft.FieldIndex).Addr()
 				v = fixPointer(v)
 				field := t.Elem().Type().Field(ft.FieldIndex)
@@ -650,6 +665,9 @@ func MarshalParams(obj any) (http.Header, error) {
 	}
 	header := http.Header{}
 	for _, tag := range paramTags {
+		if tag.Value.Name == spectagular.EmptyTag || tag.Value.Name == spectagular.SkipTag {
+			continue
+		}
 		addr := value.Field(tag.FieldIndex).Addr()
 		switch tag.Value.In {
 		case HeaderIn:
