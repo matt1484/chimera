@@ -161,6 +161,24 @@ func (r *BinaryResponse[Params]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
+// ResponseHead returns the status code and header for this response object
+func (r *BinaryResponse[Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+	head := ResponseHead{
+		Header:     make(http.Header),
+		StatusCode: ctx.DefaultResponseCode(),
+	}
+	h, err := MarshalParams(&r.Params)
+	if err != nil {
+		return head, err
+	}
+	for k, v := range h {
+		for _, x := range v {
+			head.Header.Add(k, x)
+		}
+	}
+	return head, nil
+}
+
 // NewBinaryResponse creates a BinaryResponse from body and params
 func NewBinaryResponse[Params any](body []byte, params Params) *BinaryResponse[Params] {
 	return &BinaryResponse[Params]{
@@ -216,4 +234,22 @@ func (r *Binary[Params]) OpenAPIResponsesSpec() Responses {
 	schema := make(Responses)
 	binaryResponsesSpec[Params](schema)
 	return schema
+}
+
+// ResponseHead returns the status code and header for this response object
+func (r *Binary[Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+	head := ResponseHead{
+		Header:     make(http.Header),
+		StatusCode: ctx.DefaultResponseCode(),
+	}
+	h, err := MarshalParams(&r.Params)
+	if err != nil {
+		return head, err
+	}
+	for k, v := range h {
+		for _, x := range v {
+			head.Header.Add(k, x)
+		}
+	}
+	return head, nil
 }

@@ -241,6 +241,24 @@ func (r *JSONResponse[Body, Params]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
+// ResponseHead returns the status code and header for this response object
+func (r *JSONResponse[Body, Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+	head := ResponseHead{
+		Header:     make(http.Header),
+		StatusCode: ctx.DefaultResponseCode(),
+	}
+	h, err := MarshalParams(&r.Params)
+	if err != nil {
+		return head, err
+	}
+	for k, v := range h {
+		for _, x := range v {
+			head.Header.Add(k, x)
+		}
+	}
+	return head, nil
+}
+
 // NewJSONResponse creates a JSONResponse from body and params
 func NewJSONResponse[Body, Params any](body Body, params Params) *JSONResponse[Body, Params] {
 	return &JSONResponse[Body, Params]{
@@ -296,4 +314,22 @@ func (r *JSON[Body, Params]) OpenAPIResponsesSpec() Responses {
 	schema := make(Responses)
 	jsonResponsesSpec[Body, Params](schema)
 	return schema
+}
+
+// ResponseHead returns the status code and header for this response object
+func (r *JSON[Body, Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+	head := ResponseHead{
+		Header:     make(http.Header),
+		StatusCode: ctx.DefaultResponseCode(),
+	}
+	h, err := MarshalParams(&r.Params)
+	if err != nil {
+		return head, err
+	}
+	for k, v := range h {
+		for _, x := range v {
+			head.Header.Add(k, x)
+		}
+	}
+	return head, nil
 }

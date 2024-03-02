@@ -72,6 +72,23 @@ func (r *OneOfResponse[ResponseType]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
+// ResponseHead returns the status code and header for this response object
+func (r *OneOfResponse[ResponseType]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+	body := reflect.ValueOf(r.Response)
+	tags, _ := responseTagCache.Get(body.Type())
+	for _, tag := range tags {
+		field := body.Field(tag.FieldIndex)
+		if !field.IsNil() {
+			field = fixPointer(field)
+			return field.Interface().(ResponseWriter).ResponseHead(ctx.WithResponseCode(tag.Value.StatusCode))
+		}
+	}
+	return ResponseHead{
+		Header:     make(http.Header),
+		StatusCode: ctx.DefaultResponseCode(),
+	}, nil
+}
+
 // NewOneOfResponse creates a OneOfResponse from a response
 func NewOneOfResponse[ResponseType any](response ResponseType) *OneOfResponse[ResponseType] {
 	return &OneOfResponse[ResponseType]{

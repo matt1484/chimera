@@ -156,6 +156,24 @@ func (r *PlainTextResponse[Params]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
+// ResponseHead returns the status code and header for this response object
+func (r *PlainTextResponse[Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+	head := ResponseHead{
+		Header:     make(http.Header),
+		StatusCode: ctx.DefaultResponseCode(),
+	}
+	h, err := MarshalParams(&r.Params)
+	if err != nil {
+		return head, err
+	}
+	for k, v := range h {
+		for _, x := range v {
+			head.Header.Add(k, x)
+		}
+	}
+	return head, nil
+}
+
 // NewPlainTextResponse creates a PlainTextResponse from a string and params
 func NewPlainTextResponse[Params any](body string, params Params) *PlainTextResponse[Params] {
 	return &PlainTextResponse[Params]{
@@ -210,4 +228,22 @@ func (r *PlainText[Params]) OpenAPIResponsesSpec() Responses {
 	schema := make(Responses)
 	textResponsesSpec[Params](schema)
 	return schema
+}
+
+// ResponseHead returns the status code and header for this response object
+func (r *PlainText[Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+	head := ResponseHead{
+		Header:     make(http.Header),
+		StatusCode: ctx.DefaultResponseCode(),
+	}
+	h, err := MarshalParams(&r.Params)
+	if err != nil {
+		return head, err
+	}
+	for k, v := range h {
+		for _, x := range v {
+			head.Header.Add(k, x)
+		}
+	}
+	return head, nil
 }

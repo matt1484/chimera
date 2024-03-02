@@ -5,7 +5,7 @@ All route handlers use a pointer to a `ResponseWriter` (i.e. `ResponseWriterPtr`
 3. `WriteResponse()` is run on it to write the response
 
 Additionally, handlers can return an `error`, which if non-nil will ignore the response value and instead return a generic `500` or a custom response if it is a `APIError`.
-Because response writing is lazy, any middleware can intercept and modify it before the response is actually returned, and writing of responses requires a `ResponseContext` since the intent is that `ResponseWriter` implementations are route-agnostic (i.e. are not bound to response code or route path)
+Because response writing is lazy, any middleware can intercept and modify it before the response is actually returned, and writing of responses requires a `ResponseContext` since the intent is that `ResponseWriter` implementations are route-agnostic (i.e. are not bound to response code or route path). Middleware can call `ResponseHead()` on `ResponseWriter` objects to get the headers/status code without needing to write body
 
 ## Simple response types
 `chimera` provides a few response types that implement `ResponseWriter` which are:

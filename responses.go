@@ -11,9 +11,15 @@ var (
 	_ ResponseWriter = new(Response)
 )
 
+type ResponseHead struct {
+	StatusCode int
+	Header     http.Header
+}
+
 // ResponseWriter allows chimera to automatically write responses
 type ResponseWriter interface {
 	WriteResponse(http.ResponseWriter, RouteContext) error
+	ResponseHead(RouteContext) (ResponseHead, error)
 	OpenAPIResponsesSpec() Responses
 }
 
@@ -37,6 +43,13 @@ func (*EmptyResponse) WriteResponse(w http.ResponseWriter, ctx RouteContext) err
 // OpenAPIResponsesSpec returns an empty Responses definition
 func (*EmptyResponse) OpenAPIResponsesSpec() Responses {
 	return Responses{}
+}
+
+func (*EmptyResponse) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+	return ResponseHead{
+		Header:     make(http.Header),
+		StatusCode: ctx.DefaultResponseCode(),
+	}, nil
 }
 
 // NoBodyResponse is a response with no body, but has parameters
@@ -85,6 +98,24 @@ func (r *NoBodyResponse[Params]) OpenAPIResponsesSpec() Responses {
 	}
 	schema[""] = response
 	return schema
+}
+
+// ResponseHead returns the status code and header for this response object
+func (r *NoBodyResponse[Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+	head := ResponseHead{
+		Header:     make(http.Header),
+		StatusCode: ctx.DefaultResponseCode(),
+	}
+	h, err := MarshalParams(&r.Params)
+	if err != nil {
+		return head, err
+	}
+	for k, v := range h {
+		for _, x := range v {
+			head.Header.Add(k, x)
+		}
+	}
+	return head, nil
 }
 
 // NewBinaryResponse creates a NoBodyResponse from params
@@ -145,6 +176,23 @@ func (r *Response) WriteResponse(w http.ResponseWriter, ctx RouteContext) error 
 // OpenAPIResponsesSpec returns an empty Responses object
 func (r *Response) OpenAPIResponsesSpec() Responses {
 	return Responses{}
+}
+
+// ResponseHead returns the status code and header for this response object
+func (r *Response) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+	head := ResponseHead{
+		Header:     make(http.Header),
+		StatusCode: ctx.DefaultResponseCode(),
+	}
+	if r.StatusCode > 0 {
+		head.StatusCode = r.StatusCode
+	}
+	for k, v := range r.Headers {
+		for _, x := range v {
+			head.Header.Add(k, x)
+		}
+	}
+	return head, nil
 }
 
 // Write stores the body in the Reponse object for use later

@@ -13,6 +13,7 @@ api.Use(func(req *http.Request, ctx chimera.RouteContext, next chimera.NextFunc)
     resp, err := next(req)
     // resp is an interface technically, so it can't be read directly
     // but you could use chimera.RecordResponse(resp, ctx) to get the headers/body/status etc.
+    // could also just call resp.ResponseHead(ctx) to get just the headers/status code
     // err could also be handled more gracefully here before making it to the error handler
     return resp, err
 })
