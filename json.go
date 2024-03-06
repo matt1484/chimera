@@ -200,38 +200,14 @@ type JSONResponse[Body, Params any] struct {
 	Params Params
 }
 
-func writeJSONResponse[Body, Params any](w http.ResponseWriter, ctx RouteContext, body *Body, params *Params) error {
-	w.Header().Add("Content-Type", "application/json")
-
-	h, err := MarshalParams(params)
+// WriteBody writes the response body using json.Marshal
+func (r *JSONResponse[Body, Params]) WriteBody(write BodyWriteFunc) error {
+	b, err := json.Marshal(r.Body)
 	if err != nil {
 		return err
 	}
-	for k, v := range h {
-		for _, x := range v {
-			w.Header().Add(k, x)
-		}
-	}
-	w.WriteHeader(ctx.DefaultResponseCode())
-	b, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// WriteResponse writes the response body, parameters, and response code from context
-func (r *JSONResponse[Body, Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
-	if r == nil {
-		w.Header().Add("Content-Type", "application/json")
-		w.WriteHeader(ctx.DefaultResponseCode())
-		return nil
-	}
-	return writeJSONResponse(w, ctx, &r.Body, &r.Params)
+	_, err = write(b)
+	return err
 }
 
 // OpenAPIResponsesSpec returns the Responses definition of a JSONResponse using "invopop/jsonschema"
@@ -241,22 +217,19 @@ func (r *JSONResponse[Body, Params]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
-// ResponseHead returns the status code and header for this response object
-func (r *JSONResponse[Body, Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
-	head := ResponseHead{
-		Header:     make(http.Header),
-		StatusCode: ctx.DefaultResponseCode(),
-	}
+// WriteHead writes header for this response object
+func (r *JSONResponse[Body, Params]) WriteHead(head *ResponseHead) error {
+	head.Headers.Set("Content-Type", "application/json")
 	h, err := MarshalParams(&r.Params)
 	if err != nil {
-		return head, err
+		return err
 	}
 	for k, v := range h {
 		for _, x := range v {
-			head.Header.Add(k, x)
+			head.Headers.Add(k, x)
 		}
 	}
-	return head, nil
+	return nil
 }
 
 // NewJSONResponse creates a JSONResponse from body and params
@@ -299,14 +272,14 @@ func (r *JSON[Body, Params]) OpenAPIRequestSpec() RequestSpec {
 	return schema
 }
 
-// WriteResponse writes the response body, parameters, and response code from context
-func (r *JSON[Body, Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
-	if r == nil {
-		w.Header().Add("Content-Type", "application/json")
-		w.WriteHeader(ctx.DefaultResponseCode())
-		return nil
+// WriteBody writes the response body
+func (r *JSON[Body, Params]) WriteBody(write BodyWriteFunc) error {
+	b, err := json.Marshal(r.Body)
+	if err != nil {
+		return err
 	}
-	return writeJSONResponse(w, ctx, &r.Body, &r.Params)
+	_, err = write(b)
+	return err
 }
 
 // OpenAPIResponsesSpec returns the Responses definition of a JSON response using "invopop/jsonschema"
@@ -316,20 +289,17 @@ func (r *JSON[Body, Params]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
-// ResponseHead returns the status code and header for this response object
-func (r *JSON[Body, Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
-	head := ResponseHead{
-		Header:     make(http.Header),
-		StatusCode: ctx.DefaultResponseCode(),
-	}
+// WriteHead writes header for this response object
+func (r *JSON[Body, Params]) WriteHead(head *ResponseHead) error {
+	head.Headers.Set("Content-Type", "application/json")
 	h, err := MarshalParams(&r.Params)
 	if err != nil {
-		return head, err
+		return err
 	}
 	for k, v := range h {
 		for _, x := range v {
-			head.Header.Add(k, x)
+			head.Headers.Add(k, x)
 		}
 	}
-	return head, nil
+	return nil
 }

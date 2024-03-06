@@ -6,20 +6,34 @@ import (
 )
 
 var (
-	_ ResponseWriter = new(EmptyResponse)
-	_ ResponseWriter = new(NoBodyResponse[Nil])
-	_ ResponseWriter = new(Response)
+	_ ResponseWriter      = new(EmptyResponse)
+	_ ResponseWriter      = new(NoBodyResponse[Nil])
+	_ ResponseWriter      = new(Response)
+	_ http.ResponseWriter = new(Response)
+	_ http.ResponseWriter = new(httpResponseWriter)
+	_ ResponseWriter      = new(LazyBodyResponse)
 )
 
+// ResponseHead contains the head of an HTTP Response
 type ResponseHead struct {
 	StatusCode int
-	Header     http.Header
+	Headers    http.Header
+}
+
+type BodyWriteFunc func(body []byte) (int, error)
+
+type ResponseBodyWriter interface {
+	WriteBody(write BodyWriteFunc) error
+}
+
+type ResponseHeadWriter interface {
+	WriteHead(*ResponseHead) error
 }
 
 // ResponseWriter allows chimera to automatically write responses
 type ResponseWriter interface {
-	WriteResponse(http.ResponseWriter, RouteContext) error
-	ResponseHead(RouteContext) (ResponseHead, error)
+	ResponseBodyWriter
+	ResponseHeadWriter
 	OpenAPIResponsesSpec() Responses
 }
 
@@ -34,9 +48,13 @@ type ResponseWriterPtr[T any] interface {
 // (mostly used for DELETE requests)
 type EmptyResponse struct{}
 
-// WriteResponse just writes the default status code and no body/headers
-func (*EmptyResponse) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
-	w.WriteHeader(ctx.DefaultResponseCode())
+// WriteHead does nothing
+func (*EmptyResponse) WriteHead(*ResponseHead) error {
+	return nil
+}
+
+// WriteBody does nothing
+func (*EmptyResponse) WriteBody(BodyWriteFunc) error {
 	return nil
 }
 
@@ -45,31 +63,14 @@ func (*EmptyResponse) OpenAPIResponsesSpec() Responses {
 	return Responses{}
 }
 
-func (*EmptyResponse) ResponseHead(ctx RouteContext) (ResponseHead, error) {
-	return ResponseHead{
-		Header:     make(http.Header),
-		StatusCode: ctx.DefaultResponseCode(),
-	}, nil
-}
-
 // NoBodyResponse is a response with no body, but has parameters
 // (mostly used for DELETE requests)
 type NoBodyResponse[Params any] struct {
 	Params Params
 }
 
-// WriteResponse writes the response headers and response code from context
-func (r *NoBodyResponse[Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
-	h, err := MarshalParams(&r.Params)
-	if err != nil {
-		return err
-	}
-	for k, v := range h {
-		for _, x := range v {
-			w.Header().Add(k, x)
-		}
-	}
-	w.WriteHeader(ctx.DefaultResponseCode())
+// WriteBody does nothing
+func (r *NoBodyResponse[Params]) WriteBody(BodyWriteFunc) error {
 	return nil
 }
 
@@ -100,22 +101,18 @@ func (r *NoBodyResponse[Params]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
-// ResponseHead returns the status code and header for this response object
-func (r *NoBodyResponse[Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
-	head := ResponseHead{
-		Header:     make(http.Header),
-		StatusCode: ctx.DefaultResponseCode(),
-	}
+// WriteHead writes the headers for this response
+func (r *NoBodyResponse[Params]) WriteHead(head *ResponseHead) error {
 	h, err := MarshalParams(&r.Params)
 	if err != nil {
-		return head, err
+		return err
 	}
 	for k, v := range h {
 		for _, x := range v {
-			head.Header.Add(k, x)
+			head.Headers.Add(k, x)
 		}
 	}
-	return head, nil
+	return nil
 }
 
 // NewBinaryResponse creates a NoBodyResponse from params
@@ -131,6 +128,7 @@ type httpResponseWriter struct {
 	respError error
 	response  ResponseWriter
 	route     *route
+	dirty     bool
 }
 
 // Header returns the response headers
@@ -140,11 +138,13 @@ func (w *httpResponseWriter) Header() http.Header {
 
 // Write writes to the response body
 func (w *httpResponseWriter) Write(b []byte) (int, error) {
+	w.dirty = true
 	return w.writer.Write(b)
 }
 
 // WriteHeader sets the status code
 func (w *httpResponseWriter) WriteHeader(s int) {
+	w.dirty = true
 	w.writer.WriteHeader(s)
 }
 
@@ -157,19 +157,9 @@ type Response struct {
 	Body       []byte
 }
 
-// WriteResponse writes the exact body, headers, and status code from the struct
-func (r *Response) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
-	for k, v := range r.Headers {
-		for _, h := range v {
-			w.Header().Add(k, h)
-		}
-	}
-	if r.StatusCode > 0 {
-		w.WriteHeader(r.StatusCode)
-	} else {
-		w.WriteHeader(ctx.DefaultResponseCode())
-	}
-	_, err := w.Write(r.Body)
+// WriteBody writes the exact body from the struct
+func (r *Response) WriteBody(write BodyWriteFunc) error {
+	_, err := write(r.Body)
 	return err
 }
 
@@ -178,21 +168,15 @@ func (r *Response) OpenAPIResponsesSpec() Responses {
 	return Responses{}
 }
 
-// ResponseHead returns the status code and header for this response object
-func (r *Response) ResponseHead(ctx RouteContext) (ResponseHead, error) {
-	head := ResponseHead{
-		Header:     make(http.Header),
-		StatusCode: ctx.DefaultResponseCode(),
-	}
+// WriteHead returns the status code and header for this response object
+func (r *Response) WriteHead(head *ResponseHead) error {
 	if r.StatusCode > 0 {
 		head.StatusCode = r.StatusCode
 	}
 	for k, v := range r.Headers {
-		for _, x := range v {
-			head.Header.Add(k, x)
-		}
+		head.Headers[k] = v
 	}
-	return head, nil
+	return nil
 }
 
 // Write stores the body in the Reponse object for use later
@@ -224,9 +208,39 @@ func NewResponse(body []byte, statusCode int, header http.Header) *Response {
 	}
 }
 
-// RecordResponse copies the response from a ResponseWriter using its WriteResponse method and context
-func RecordResponse(w ResponseWriter, ctx RouteContext) (*Response, error) {
-	resp := Response{}
-	err := w.WriteResponse(&resp, ctx)
-	return &resp, err
+// LazyBodyResponse is a response that effectively wraps another ReponseWriter with predefined header/status code
+type LazyBodyResponse struct {
+	StatusCode int
+	Body       ResponseBodyWriter
+	Headers    http.Header
+}
+
+// WriteBody writes the exact body from the struct
+func (r *LazyBodyResponse) WriteBody(write BodyWriteFunc) error {
+	return r.Body.WriteBody(write)
+}
+
+// OpenAPIResponsesSpec returns an empty Responses object
+func (r *LazyBodyResponse) OpenAPIResponsesSpec() Responses {
+	return Responses{}
+}
+
+// WriteHead returns the status code and header for this response object
+func (r *LazyBodyResponse) WriteHead(head *ResponseHead) error {
+	if r.StatusCode > 0 {
+		head.StatusCode = r.StatusCode
+	}
+	for k, v := range r.Headers {
+		head.Headers[k] = v
+	}
+	return nil
+}
+
+// NewLazyBodyResponse creates a response with predefined headers and a lazy body
+func NewLazyBodyResponse(head ResponseHead, resp ResponseBodyWriter) *LazyBodyResponse {
+	return &LazyBodyResponse{
+		Body:       resp,
+		Headers:    head.Headers,
+		StatusCode: head.StatusCode,
+	}
 }

@@ -2,7 +2,6 @@ package chimera
 
 import (
 	"fmt"
-	"net/http"
 	"reflect"
 
 	"github.com/matt1484/spectagular"
@@ -29,15 +28,15 @@ type OneOfResponse[ResponseType any] struct {
 	Response ResponseType
 }
 
-// WriteResponse writes the response body, params, and status code using the first non-nil field
-func (r *OneOfResponse[ResponseType]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
+// WriteBody writes the response body using the first non-nil field
+func (r *OneOfResponse[ResponseType]) WriteBody(write BodyWriteFunc) error {
 	body := reflect.ValueOf(r.Response)
 	tags, _ := responseTagCache.Get(body.Type())
 	for _, tag := range tags {
 		field := body.Field(tag.FieldIndex)
 		if !field.IsNil() {
 			field = fixPointer(field)
-			return field.Interface().(ResponseWriter).WriteResponse(w, ctx.WithResponseCode(tag.Value.StatusCode))
+			return field.Interface().(ResponseWriter).WriteBody(write)
 		}
 	}
 	return nil
@@ -72,21 +71,21 @@ func (r *OneOfResponse[ResponseType]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
-// ResponseHead returns the status code and header for this response object
-func (r *OneOfResponse[ResponseType]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
+// WriteHead writes the status code and header using the first non-nil field
+func (r *OneOfResponse[ResponseType]) WriteHead(head *ResponseHead) error {
 	body := reflect.ValueOf(r.Response)
 	tags, _ := responseTagCache.Get(body.Type())
 	for _, tag := range tags {
 		field := body.Field(tag.FieldIndex)
 		if !field.IsNil() {
 			field = fixPointer(field)
-			return field.Interface().(ResponseWriter).ResponseHead(ctx.WithResponseCode(tag.Value.StatusCode))
+			if tag.Value.StatusCode > 0 {
+				head.StatusCode = tag.Value.StatusCode
+			}
+			return field.Interface().(ResponseWriter).WriteHead(head)
 		}
 	}
-	return ResponseHead{
-		Header:     make(http.Header),
-		StatusCode: ctx.DefaultResponseCode(),
-	}, nil
+	return nil
 }
 
 // NewOneOfResponse creates a OneOfResponse from a response

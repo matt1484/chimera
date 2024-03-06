@@ -58,6 +58,10 @@ func (a *API) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		writer: w,
 	}
 	a.router.ServeHTTP(&customWriter, req)
+	write(&customWriter, w, req)
+}
+
+func write(customWriter *httpResponseWriter, w http.ResponseWriter, req *http.Request) {
 	if customWriter.respError != nil {
 		if err, ok := customWriter.respError.(APIError); ok {
 			for k, vals := range err.Header {
@@ -78,7 +82,18 @@ func (a *API) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		// TODO: maybe allow global default response codes for methods?
 		if customWriter.response != nil && !reflect.ValueOf(customWriter.response).IsNil() {
-			customWriter.response.WriteResponse(&customWriter, customWriter.route.context)
+			head := ResponseHead{
+				StatusCode: customWriter.route.context.responseCode,
+				Headers:    customWriter.Header(),
+			}
+			err := customWriter.response.WriteHead(&head)
+			if err != nil {
+				customWriter.writer.WriteHeader(500)
+				customWriter.Write(default500Error)
+			} else {
+				customWriter.WriteHeader(head.StatusCode)
+				customWriter.response.WriteBody(customWriter.Write)
+			}
 		} else {
 			if customWriter.route != nil && customWriter.route.context.responseCode != 0 {
 				w.WriteHeader(customWriter.route.context.responseCode)
@@ -363,6 +378,14 @@ func (a *API) Group(basePath string) *API {
 	return newSub
 }
 
+// Mount adds an API as a child based on route. It is like a reverse Group()
+func (a *API) Mount(basePath string, subAPI *API) {
+	basePath = a.basePath + basePath
+	subAPI.basePath = basePath
+	subAPI.parent = a
+	a.subAPIs = append(a.subAPIs, subAPI)
+}
+
 // rebuildRouter rebuilds the entire router. This is not particularly efficient
 // but at least this allows us to specify middleware/routes/groups in any order
 // while still having a guaranteed final order
@@ -417,6 +440,41 @@ func (a *API) rebuildRouter() chi.Router {
 			}
 			return middleware(r, w.route.context, wrapped.Next)
 		})
+
+		// if true {
+		// 	middleware := (func(next http.Handler) http.Handler {
+		// 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 			w.Write(nil)
+		// 			// fake w
+		// 			next.ServeHTTP(&Response{}, r)
+		// 			w.Write(nil)
+		// 		})
+		// 	})
+		// 	h := handler
+		// 	handler = (func(writer *httpResponseWriter, req *http.Request) (ResponseWriter, error) {
+		// 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 			wr, ok := w.(*httpResponseWriter)
+		// 			if !ok {
+		// 				wr = &httpResponseWriter{
+		// 					writer: w,
+		// 					route:  writer.route,
+		// 				}
+		// 				wr.response, wr.respError = h(wr, r)
+		// 				write(wr, w, r)
+		// 			} else {
+		// 				wr.response, wr.respError = h(wr, r)
+		// 				if wr.dirty {
+		// 					write(wr, w, r)
+		// 				}
+		// 			}
+		// 		})
+		// 		middleware(next).ServeHTTP(writer, req)
+		// 		if writer.dirty {
+		// 			write(writer, writer.writer, req)
+		// 		}
+		// 		return writer.response, writer.respError
+		// 	})
+		// }
 	}
 	for _, route := range a.routes {
 		if route.hidden {

@@ -92,33 +92,10 @@ type BinaryResponse[Params any] struct {
 	Params Params
 }
 
-func writeBinaryResponse[Params any](w http.ResponseWriter, ctx RouteContext, body *[]byte, params *Params) error {
-	w.Header().Add("Content-Type", "application/octet-stream")
-	h, err := MarshalParams(params)
-	if err != nil {
-		return err
-	}
-	for k, v := range h {
-		for _, x := range v {
-			w.Header().Add(k, x)
-		}
-	}
-	w.WriteHeader(ctx.DefaultResponseCode())
-	_, err = w.Write(*body)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// WriteResponse writes the response body, parameters, and response code from context
-func (r *BinaryResponse[Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
-	if r == nil {
-		w.Header().Add("Content-Type", "application/octet-stream")
-		w.WriteHeader(ctx.DefaultResponseCode())
-		return nil
-	}
-	return writeBinaryResponse(w, ctx, &r.Body, &r.Params)
+// WriteBody writes the response body
+func (r *BinaryResponse[Params]) WriteBody(write BodyWriteFunc) error {
+	_, err := write(r.Body)
+	return err
 }
 
 func binaryResponsesSpec[Params any](schema Responses) {
@@ -161,22 +138,19 @@ func (r *BinaryResponse[Params]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
-// ResponseHead returns the status code and header for this response object
-func (r *BinaryResponse[Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
-	head := ResponseHead{
-		Header:     make(http.Header),
-		StatusCode: ctx.DefaultResponseCode(),
-	}
+// WriteHead writes adds the header for this response object
+func (r *BinaryResponse[Params]) WriteHead(head *ResponseHead) error {
+	head.Headers.Set("Content-Type", "application/octet-stream")
 	h, err := MarshalParams(&r.Params)
 	if err != nil {
-		return head, err
+		return err
 	}
 	for k, v := range h {
 		for _, x := range v {
-			head.Header.Add(k, x)
+			head.Headers.Add(k, x)
 		}
 	}
-	return head, nil
+	return nil
 }
 
 // NewBinaryResponse creates a BinaryResponse from body and params
@@ -219,14 +193,10 @@ func (r *Binary[Params]) OpenAPIRequestSpec() RequestSpec {
 	return schema
 }
 
-// WriteResponse writes the response body, parameters, and response code from context
-func (r *Binary[Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
-	if r == nil {
-		w.Header().Add("Content-Type", "application/octet-stream")
-		w.WriteHeader(ctx.DefaultResponseCode())
-		return nil
-	}
-	return writeBinaryResponse(w, ctx, &r.Body, &r.Params)
+// WriteBody writes the response body
+func (r *Binary[Params]) WriteBody(write BodyWriteFunc) error {
+	_, err := write(r.Body)
+	return err
 }
 
 // OpenAPIResponsesSpec returns the Responses definition of a BinaryResponse
@@ -236,20 +206,17 @@ func (r *Binary[Params]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
-// ResponseHead returns the status code and header for this response object
-func (r *Binary[Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
-	head := ResponseHead{
-		Header:     make(http.Header),
-		StatusCode: ctx.DefaultResponseCode(),
-	}
+// WriteHead writes the header for this response object
+func (r *Binary[Params]) WriteHead(head *ResponseHead) error {
+	head.Headers.Set("Content-Type", "application/octet-stream")
 	h, err := MarshalParams(&r.Params)
 	if err != nil {
-		return head, err
+		return err
 	}
 	for k, v := range h {
 		for _, x := range v {
-			head.Header.Add(k, x)
+			head.Headers.Add(k, x)
 		}
 	}
-	return head, nil
+	return nil
 }

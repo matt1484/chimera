@@ -88,33 +88,10 @@ type PlainTextResponse[Params any] struct {
 	Params Params
 }
 
-func writeTextResponse[Params any](w http.ResponseWriter, ctx RouteContext, body *string, params *Params) error {
-	w.Header().Add("Content-Type", "text/plain")
-	h, err := MarshalParams(params)
-	if err != nil {
-		return err
-	}
-	for k, v := range h {
-		for _, x := range v {
-			w.Header().Add(k, x)
-		}
-	}
-	w.WriteHeader(ctx.DefaultResponseCode())
-	_, err = w.Write([]byte(*body))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// WriteResponse writes the response body, parameters, and response code from context
-func (r *PlainTextResponse[Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
-	if r == nil {
-		w.Header().Add("Content-Type", "text/plain")
-		w.WriteHeader(ctx.DefaultResponseCode())
-		return nil
-	}
-	return writeTextResponse[Params](w, ctx, &r.Body, &r.Params)
+// WriteBody writes the response
+func (r *PlainTextResponse[Params]) WriteBody(write BodyWriteFunc) error {
+	_, err := write([]byte(r.Body))
+	return err
 }
 
 func textResponsesSpec[Params any](schema Responses) {
@@ -156,22 +133,19 @@ func (r *PlainTextResponse[Params]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
-// ResponseHead returns the status code and header for this response object
-func (r *PlainTextResponse[Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
-	head := ResponseHead{
-		Header:     make(http.Header),
-		StatusCode: ctx.DefaultResponseCode(),
-	}
+// WriteHead write the header for this response object
+func (r *PlainTextResponse[Params]) WriteHead(head *ResponseHead) error {
+	head.Headers.Set("Content-Type", "text/plain")
 	h, err := MarshalParams(&r.Params)
 	if err != nil {
-		return head, err
+		return err
 	}
 	for k, v := range h {
 		for _, x := range v {
-			head.Header.Add(k, x)
+			head.Headers.Add(k, x)
 		}
 	}
-	return head, nil
+	return nil
 }
 
 // NewPlainTextResponse creates a PlainTextResponse from a string and params
@@ -213,14 +187,10 @@ func (r *PlainText[Params]) OpenAPIRequestSpec() RequestSpec {
 	return schema
 }
 
-// WriteResponse writes the response body, parameters, and response code from context
-func (r *PlainText[Params]) WriteResponse(w http.ResponseWriter, ctx RouteContext) error {
-	if r == nil {
-		w.Header().Add("Content-Type", "text/plain")
-		w.WriteHeader(ctx.DefaultResponseCode())
-		return nil
-	}
-	return writeTextResponse[Params](w, ctx, &r.Body, &r.Params)
+// WriteBody writes the response body
+func (r *PlainText[Params]) WriteBody(write BodyWriteFunc) error {
+	_, err := write([]byte(r.Body))
+	return err
 }
 
 // OpenAPIResponsesSpec describes the Responses for text/plain requests
@@ -230,20 +200,17 @@ func (r *PlainText[Params]) OpenAPIResponsesSpec() Responses {
 	return schema
 }
 
-// ResponseHead returns the status code and header for this response object
-func (r *PlainText[Params]) ResponseHead(ctx RouteContext) (ResponseHead, error) {
-	head := ResponseHead{
-		Header:     make(http.Header),
-		StatusCode: ctx.DefaultResponseCode(),
-	}
+// WriteHead writes the header for this response object
+func (r *PlainText[Params]) WriteHead(head *ResponseHead) error {
+	head.Headers.Set("Content-Type", "text/plain")
 	h, err := MarshalParams(&r.Params)
 	if err != nil {
-		return head, err
+		return err
 	}
 	for k, v := range h {
 		for _, x := range v {
-			head.Header.Add(k, x)
+			head.Headers.Add(k, x)
 		}
 	}
-	return head, nil
+	return nil
 }

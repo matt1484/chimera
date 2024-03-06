@@ -24,8 +24,10 @@ type RouteContext interface {
 	Method() string
 	// DefaultResponseCode returns the default response code for this route
 	DefaultResponseCode() int
-	// WithResponseCode replaces the default status code for this route
-	WithResponseCode(int) RouteContext
+	// GetResponseHead gets the ResponseHead based on the default status code and a ResponseWriter
+	GetResponseHead(ResponseWriter) (*ResponseHead, error)
+	// GetResponse turns a ResponseWriter into *Response based on the default status code
+	GetResponse(ResponseWriter) (*Response, error)
 }
 
 // Path returns the path that the route was setup with (i.e. /route/{var})
@@ -43,16 +45,45 @@ func (r *routeContext) DefaultResponseCode() int {
 	return r.responseCode
 }
 
-func (r *routeContext) WithResponseCode(code int) RouteContext {
-	return &routeContext{
-		method:       r.method,
-		path:         r.path,
-		responseCode: code,
+// GetResponseHead gets the ResponseHead based on the default status code and a ResponseWriter
+func (r *routeContext) GetResponseHead(resp ResponseWriter) (*ResponseHead, error) {
+	head := ResponseHead{
+		Headers:    make(http.Header),
+		StatusCode: r.responseCode,
 	}
+	err := resp.WriteHead(&head)
+	return &head, err
 }
+
+// GetResponse turns a ResponseWriter into *Response based on the default status code
+func (r *routeContext) GetResponse(resp ResponseWriter) (*Response, error) {
+	head, err := r.GetResponseHead(resp)
+	if err != nil {
+		return nil, err
+	}
+	actual := Response{
+		StatusCode: head.StatusCode,
+		Headers:    head.Headers,
+		Body:       make([]byte, 0),
+	}
+	err = resp.WriteBody(actual.Write)
+	if err != nil {
+		return nil, err
+	}
+	return &actual, nil
+}
+
+// func (r *routeContext) WithResponseCode(code int) RouteContext {
+// 	return &routeContext{
+// 		method:       r.method,
+// 		path:         r.path,
+// 		responseCode: code,
+// 	}
+// }
 
 // route contains basic info about an API route
 type route struct {
+	// func(*http.Request) (ResponseWriter, error)
 	handler       http.HandlerFunc
 	operationSpec *Operation
 	context       *routeContext
