@@ -34,7 +34,7 @@ func (r *JSONRequest[Body, Params]) Context() context.Context {
 	return nil
 }
 
-func readJSONRequest[Body, Params any](req *http.Request, ctx RouteContext, body *Body, params *Params) error {
+func readJSONRequest[Body, Params any](req *http.Request, body *Body, params *Params) error {
 	defer req.Body.Close()
 	b, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -60,9 +60,9 @@ func readJSONRequest[Body, Params any](req *http.Request, ctx RouteContext, body
 // ReadRequest reads the body of an http request and assigns it to the Body field using json.Unmarshal
 // This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
 // NOTE: the body of the request is closed after this function is run.
-func (r *JSONRequest[Body, Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
+func (r *JSONRequest[Body, Params]) ReadRequest(req *http.Request) error {
 	r.request = req
-	return readJSONRequest(req, ctx, &r.Body, &r.Params)
+	return readJSONRequest(req, &r.Body, &r.Params)
 }
 
 // standardizedSchemas basically tries to convert all jsonschema.Schema objects to be mapped
@@ -260,9 +260,9 @@ func (r *JSON[Body, Params]) Context() context.Context {
 // ReadRequest reads the body of an http request and assigns it to the Body field using json.Unmarshal
 // This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
 // NOTE: the body of the request is closed after this function is run.
-func (r *JSON[Body, Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
+func (r *JSON[Body, Params]) ReadRequest(req *http.Request) error {
 	r.request = req
-	return readJSONRequest(req, ctx, &r.Body, &r.Params)
+	return readJSONRequest(req, &r.Body, &r.Params)
 }
 
 // OpenAPIRequestSpec returns the Request definition of a JSON request using "invopop/jsonschema"

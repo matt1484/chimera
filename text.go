@@ -31,7 +31,7 @@ func (r *PlainTextRequest[Params]) Context() context.Context {
 	return nil
 }
 
-func readPlainTextRequest[Params any](req *http.Request, ctx RouteContext, body *string, params *Params) error {
+func readPlainTextRequest[Params any](req *http.Request, body *string, params *Params) error {
 	defer req.Body.Close()
 	b, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -51,9 +51,9 @@ func readPlainTextRequest[Params any](req *http.Request, ctx RouteContext, body 
 // ReadRequest reads the body of an http request and assigns it to the Body field using io.ReadAll.
 // This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
 // NOTE: the body of the request is closed after this function is run.
-func (r *PlainTextRequest[Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
+func (r *PlainTextRequest[Params]) ReadRequest(req *http.Request) error {
 	r.request = req
-	return readPlainTextRequest(req, ctx, &r.Body, &r.Params)
+	return readPlainTextRequest(req, &r.Body, &r.Params)
 }
 
 func textRequestSpec[Params any](schema *RequestSpec) {
@@ -175,9 +175,9 @@ func (r *PlainText[Params]) Context() context.Context {
 // ReadRequest reads the body of an http request and assigns it to the Body field using io.ReadAll.
 // This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
 // NOTE: the body of the request is closed after this function is run.
-func (r *PlainText[Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
+func (r *PlainText[Params]) ReadRequest(req *http.Request) error {
 	r.request = req
-	return readPlainTextRequest(req, ctx, &r.Body, &r.Params)
+	return readPlainTextRequest(req, &r.Body, &r.Params)
 }
 
 // OpenAPIRequestSpec describes the RequestSpec for text/plain requests

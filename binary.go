@@ -32,7 +32,7 @@ func (r *BinaryRequest[Params]) Context() context.Context {
 	return nil
 }
 
-func readBinaryRequest[Params any](req *http.Request, ctx RouteContext, body *[]byte, params *Params) error {
+func readBinaryRequest[Params any](req *http.Request, body *[]byte, params *Params) error {
 	defer req.Body.Close()
 	b, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -53,9 +53,9 @@ func readBinaryRequest[Params any](req *http.Request, ctx RouteContext, body *[]
 // ReadRequest reads the body of an http request and assigns it to the Body field using io.ReadAll.
 // This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
 // NOTE: the body of the request is closed after this function is run.
-func (r *BinaryRequest[Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
+func (r *BinaryRequest[Params]) ReadRequest(req *http.Request) error {
 	r.request = req
-	return readBinaryRequest(req, ctx, &r.Body, &r.Params)
+	return readBinaryRequest(req, &r.Body, &r.Params)
 }
 
 func binaryRequestSpec[Params any](schema *RequestSpec) {
@@ -181,9 +181,9 @@ func (r *Binary[Params]) Context() context.Context {
 // ReadRequest reads the body of an http request and assigns it to the Body field using io.ReadAll.
 // This function also reads the parameters using UnmarshalParams and assigns it to the Params field.
 // NOTE: the body of the request is closed after this function is run.
-func (r *Binary[Params]) ReadRequest(req *http.Request, ctx RouteContext) error {
+func (r *Binary[Params]) ReadRequest(req *http.Request) error {
 	r.request = req
-	return readBinaryRequest(req, ctx, &r.Body, &r.Params)
+	return readBinaryRequest(req, &r.Body, &r.Params)
 }
 
 // OpenAPIRequestSpec returns the Request definition of a BinaryRequest

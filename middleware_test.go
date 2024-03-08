@@ -11,31 +11,34 @@ import (
 
 func TestMiddleware(t *testing.T) {
 	api := chimera.NewAPI()
-	firstCalled := false
-	secondCalled := false
-	thirdCalled := false
+	called := make([]int, 0)
 	api.Use(func(req *http.Request, ctx chimera.RouteContext, next chimera.NextFunc) (chimera.ResponseWriter, error) {
-		firstCalled = true
+		called = append(called, 1)
 		return next(req)
 	})
 	api.Use(func(req *http.Request, ctx chimera.RouteContext, next chimera.NextFunc) (chimera.ResponseWriter, error) {
-		secondCalled = true
+		called = append(called, 2)
 		return next(req)
 	})
 	group := api.Group("/base")
-	chimera.Get(group, "/sub", func(*chimera.EmptyRequest) (*chimera.EmptyResponse, error) {
-		return nil, nil
-	})
 	group.Use(func(req *http.Request, ctx chimera.RouteContext, next chimera.NextFunc) (chimera.ResponseWriter, error) {
-		thirdCalled = true
+		called = append(called, 3)
 		return next(req)
 	})
 
+	sub := chimera.NewAPI()
+	sub.Use(func(req *http.Request, ctx chimera.RouteContext, next chimera.NextFunc) (chimera.ResponseWriter, error) {
+		called = append(called, 4)
+		return next(req)
+	})
+	chimera.Get(sub, "/route", func(*chimera.EmptyRequest) (*chimera.EmptyResponse, error) {
+		return nil, nil
+	})
+
+	group.Mount("/sub", sub)
 	server := httptest.NewServer(api)
-	resp, _ := http.Get(server.URL + "/base/sub")
+	resp, _ := http.Get(server.URL + "/base/sub/route")
 	server.Close()
 	assert.Equal(t, resp.StatusCode, 200)
-	assert.True(t, firstCalled)
-	assert.True(t, secondCalled)
-	assert.True(t, thirdCalled)
+	assert.Equal(t, called, []int{1, 2, 3, 4})
 }

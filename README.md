@@ -37,7 +37,7 @@ func main() {
     chimera.Get(api, "/test/{path}", func(req *chimera.JSON[TestBody, TestParams]) (*chimera.JSON[TestBody, chimera.Nil], error) {
         return &chimera.JSON[TestBody, TestParams]{
             Body: req.Body,
-        }
+        }, nil
     })
     api.Start(":8000")
 }

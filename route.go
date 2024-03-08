@@ -73,14 +73,6 @@ func (r *routeContext) GetResponse(resp ResponseWriter) (*Response, error) {
 	return &actual, nil
 }
 
-// func (r *routeContext) WithResponseCode(code int) RouteContext {
-// 	return &routeContext{
-// 		method:       r.method,
-// 		path:         r.path,
-// 		responseCode: code,
-// 	}
-// }
-
 // route contains basic info about an API route
 type route struct {
 	// func(*http.Request) (ResponseWriter, error)

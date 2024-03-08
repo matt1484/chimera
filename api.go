@@ -277,7 +277,7 @@ func addRoute[ReqPtr RequestReaderPtr[Req], Req any, RespPtr ResponseWriterPtr[R
 		request := ReqPtr(new(Req))
 		customWriter := w.(*httpResponseWriter)
 		customWriter.route = &route
-		customWriter.respError = request.ReadRequest(r, route.context)
+		customWriter.respError = request.ReadRequest(r)
 		if customWriter.respError != nil {
 			return
 		}
@@ -365,25 +365,22 @@ func (a *API) Use(middleware ...MiddlewareFunc) {
 // The middleware of the parent API is always evaluated first and any route collisions
 // are handled by chi directly
 func (a *API) Group(basePath string) *API {
-	basePath = a.basePath + basePath
 	for _, sub := range a.subAPIs {
-		if sub.basePath == basePath {
+		if sub.basePath == a.basePath+basePath {
 			return a
 		}
 	}
 	newSub := NewAPI()
-	newSub.basePath = basePath
-	newSub.parent = a
-	a.subAPIs = append(a.subAPIs, newSub)
+	a.Mount(basePath, newSub)
 	return newSub
 }
 
 // Mount adds an API as a child based on route. It is like a reverse Group()
 func (a *API) Mount(basePath string, subAPI *API) {
-	basePath = a.basePath + basePath
 	subAPI.basePath = basePath
 	subAPI.parent = a
 	a.subAPIs = append(a.subAPIs, subAPI)
+	rebuildAPI(a)
 }
 
 // rebuildRouter rebuilds the entire router. This is not particularly efficient
@@ -391,19 +388,35 @@ func (a *API) Mount(basePath string, subAPI *API) {
 // while still having a guaranteed final order
 func (a *API) rebuildRouter() chi.Router {
 	var schema []byte
-	apiSpec := a.openAPISpec
-	router := chi.NewRouter()
+	apiSpec := OpenAPI{
+		OpenAPI: "3.1.0",
+		Paths:   make(map[string]Path),
+		Info: Info{
+			Version: "v0.0.0",
+			Title:   "API",
+		},
+		Servers: make([]Server, 0),
+		Components: &Components{
+			Schemas: make(map[string]jsonschema.Schema),
+		},
+	}
+	apiSpec.Merge(a.openAPISpec)
 
+	if a.parent == nil {
+		a.openAPISpec = apiSpec
+	}
+
+	router := chi.NewRouter()
 	if a.parent == nil {
 		router.MethodFunc(http.MethodGet, "/openapi.json", func(w http.ResponseWriter, r *http.Request) {
 			if schema == nil {
-				schema, _ = json.Marshal(a.openAPISpec)
+				schema, _ = json.Marshal(apiSpec)
 			}
 			w.Write(schema)
 		})
 		router.Handle("/docs*",
 			v5emb.New(
-				a.openAPISpec.Info.Title,
+				apiSpec.Info.Title,
 				"/openapi.json",
 				"/docs",
 			),
