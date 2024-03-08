@@ -2,6 +2,8 @@ module github.com/matt1484/chimera
 
 go 1.19
 
+retract [v0.0.0, v0.0.5] // pre-release versions
+
 require (
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/go-playground/form/v4 v4.2.1
