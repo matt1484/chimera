@@ -2,7 +2,10 @@ module github.com/matt1484/chimera
 
 go 1.19
 
-retract [v0.0.0, v0.0.5] // pre-release versions
+retract (
+	[v0.0.0, v0.0.5] // pre-release versions
+	v0.1.0 // middleware bug
+)
 
 require (
 	github.com/go-chi/chi/v5 v5.0.8
