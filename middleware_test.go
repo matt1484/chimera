@@ -42,3 +42,25 @@ func TestMiddleware(t *testing.T) {
 	assert.Equal(t, resp.StatusCode, 200)
 	assert.Equal(t, called, []int{1, 2, 3, 4})
 }
+
+
+func TestHTTPMiddleware(t *testing.T) {
+	api := chimera.NewAPI()
+	api.Use(chimera.HTTPMiddleware(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("test", "test")
+			w.WriteHeader(418)
+			next.ServeHTTP(w, r)
+		})
+	}))
+	chimera.Get(api, "/route", func(*chimera.EmptyRequest) (*chimera.Response, error) {
+		return &chimera.Response{
+			Body: []byte("test"),
+		}, nil
+	})
+
+	server := httptest.NewServer(api)
+	resp, _ := http.Get(server.URL + "/route")
+	server.Close()
+	assert.Equal(t, resp.StatusCode, 418)
+}

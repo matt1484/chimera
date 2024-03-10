@@ -61,24 +61,28 @@ func (a *API) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	write(&customWriter, w, req)
 }
 
+func writeError(e error, w http.ResponseWriter) {
+	if err, ok := e.(APIError); ok {
+		for k, vals := range err.Header {
+			for _, v := range vals {
+				w.Header().Set(k, v)
+			}
+		}
+		if err.StatusCode != 0 {
+			w.WriteHeader(err.StatusCode)
+		} else {
+			w.WriteHeader(500)
+		}
+		w.Write(err.Body)
+	} else {
+		w.WriteHeader(500)
+		w.Write(default500Error)
+	}
+}
+
 func write(customWriter *httpResponseWriter, w http.ResponseWriter, req *http.Request) {
 	if customWriter.respError != nil {
-		if err, ok := customWriter.respError.(APIError); ok {
-			for k, vals := range err.Header {
-				for _, v := range vals {
-					customWriter.Header().Add(k, v)
-				}
-			}
-			if err.StatusCode != 0 {
-				customWriter.writer.WriteHeader(err.StatusCode)
-			} else {
-				customWriter.writer.WriteHeader(500)
-			}
-			customWriter.Write(err.Body)
-		} else {
-			customWriter.writer.WriteHeader(500)
-			customWriter.Write(default500Error)
-		}
+		writeError(customWriter.respError, customWriter.writer)
 	} else {
 		// TODO: maybe allow global default response codes for methods?
 		if customWriter.response != nil && !reflect.ValueOf(customWriter.response).IsNil() {
@@ -446,13 +450,26 @@ func (a *API) rebuildRouter() chi.Router {
 	for i := len(middlewareChain) - 1; i >= 0; i-- {
 		h := handler
 		middleware := middlewareChain[i]
-		handler = (func(w *httpResponseWriter, r *http.Request) (ResponseWriter, error) {
-			wrapped := middlewareWrapper{
-				writer:  w,
-				handler: h,
-			}
-			return middleware(r, w.route.context, wrapped.Next)
-		})
+		// switch middleware := middlewareChain[i].(type) {
+		// case MiddlewareFunc:
+			handler = (func(w *httpResponseWriter, r *http.Request) (ResponseWriter, error) {
+				wrapped := middlewareWrapper{
+					writer:  w,
+					handler: h,
+				}
+				return middleware(r, w.route.context, wrapped.Next)
+			})
+		// case HttpMiddlewareFunc:
+		// 	next := func(w http.ResponseWriter, req *http.Request) {
+		// 		writer := w.(*httpResponseWriter)
+		// 		writer.response, writer.responseError = handler(w, req)
+		// 	}
+		// 	handler = (func(w *httpResponseWriter, r *http.Request) (ResponseWriter, error) {
+		// 		fake := Response{}
+		// 		return middleware(r, w.route.context, wrapped.Next)
+		// 	})
+		// }
+		
 
 		// if true {
 		// 	middleware := (func(next http.Handler) http.Handler {
@@ -526,7 +543,7 @@ func (a *API) rebuildRouter() chi.Router {
 			router.MethodFunc(route.context.method, route.context.path, func(w http.ResponseWriter, r *http.Request) {
 				writer := w.(*httpResponseWriter)
 				writer.route = route
-				handler(writer, r)
+				writer.response, writer.respError = handler(writer, r)
 			})
 		} else {
 			router.MethodFunc(route.context.method, route.context.path, route.handler)
