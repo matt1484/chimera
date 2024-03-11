@@ -19,7 +19,3 @@ vendor/
 
 # Go workspace file
 go.work
-
-# Docs
-docs/_site
-docs/.jekyll-cache
