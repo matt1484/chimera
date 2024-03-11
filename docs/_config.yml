@@ -2,7 +2,9 @@ title: chimera
 description: 
 theme: just-the-docs
 
-url: https://just-the-docs.github.io
+domain: matt1484.github.io
+url: https://matt1484.github.io
+baseurl: /chimera/
 color_scheme: dark
 
 heading_anchors: true
