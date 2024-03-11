@@ -1,3 +1,8 @@
+---
+title: OpenAPI
+layout: default
+nav_order: 4
+---
 # OpenAPI
 `chimera` has built in support for automatically generating OpenAPI 3.1 documentation. (the current latest version)
 It does this by providing structs in [`openapi.go`](../openapi.go) that cover almost the entirety of the OpenAPI 3.1 [spec](https://spec.openapis.org/oas/v3.1.0)
@@ -21,4 +26,4 @@ Default status code is determined using the following logic:
 Since OpenAPI 3.1 supports JSONSchema, `chimera` uses [`invopop/jsonschema`](https://github.com/invopop/jsonschema) to generate schemas from request/response bodies. This relies heavily on the `jsonschema` struct tag and other relevant tags based on type (i.e. `json`, `form`, `param`, `prop`)
 
 ## Parameters
-OpenAPI parameters use the `param` struct tag (`ParamStructTag`) to define how parameters are defined in the spec. The [`params`](params.md) section of the docs covers this further.
+OpenAPI parameters use the `param` struct tag (`ParamStructTag`) to define how parameters are defined in the spec. The parameters section of the docs covers this further.

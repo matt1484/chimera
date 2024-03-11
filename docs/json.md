@@ -1,3 +1,9 @@
+---
+title: JSON
+layout: default
+nav_order: 3
+---
+
 # JSON
 `chimera` supports requests and responses with JSON bodies via these classes:
 - `JSONRequest[Body, Params any]`: JSON request with `Body` type being parsed via `encoding/json` and `Params` type being parsed via `chimera.UnmarshalParams`

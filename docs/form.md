@@ -1,3 +1,0 @@
-# Form
-`chimera` uses [`go-playground/form`](https://github.com/go-playground/form) to parse forms from request bodies using `FormRequest[Body, Params any]`.
-Because JSONSchema is used in OpenAPI, the `Body` isfirst converted to a normal JSONSchema but then condensed to represent form values that utilize `patternProperties`. Effectively this means that nested structs and arrays become flattened like `X.Y.Z[0]`

@@ -1,6 +1,16 @@
+---
+title: Parameters
+layout: default
+nav_order: 2
+---
 # Params
 `chimera` attempts to marshal/unmarshal params via the standards set in [OpenAPI](https://spec.openapis.org/oas/v3.1.0#parameter-object).
-This is done via 2 methods (`UnmarshalParams()` and `MarshalParams()`) that each utilize the `param` struct tags of the format:
+This is done via 2 methods:
+```golang
+func UnmarshalParams(request *http.Request, obj any) error 
+func MarshalParams(obj any) (http.Header, error) 
+```
+that each utilize the `param` struct tag of the format:
 ```golang
 type ParamStructTag struct {
 	Name            string `structtag:"$name"`
@@ -42,3 +52,24 @@ To support customization of param marshaling/unmarshaling the following function
 - `MarshalHeaderParam(ParamStructTag) (http.Header, error)`
 - `UnmarshalPathParam(string, ParamStructTag) error`
 - `UnmarshalQueryParam(url.Values, ParamStructTag) error`
+
+## Usage
+The included request and response types utilize auto-handling of params like so:
+```golang
+type RequestParams struct {
+	PathParam string `param:"some_param,description:'a parameter'"`
+}
+
+type ResponseParams struct {
+	HeaderParam string `param:"my-header,description:'a response header'"`
+}
+
+chimera.Post(api, "/route/{some_param}", func(req *chimera.NoBodyRequest[RequestParams]) (*chimera.NoBodyResponse[ResponseParams], error) {
+    // request contains parsed RequestParams
+    return &chimera.NoBodyResponse[ResponseParams]{
+		Params: ResponseParams{
+			HeaderParam: "some header value", // this will get written to the header "my-header"
+		},
+	}, nil
+})
+```
