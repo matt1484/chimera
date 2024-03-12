@@ -57,11 +57,11 @@ To support customization of param marshaling/unmarshaling the following function
 The included request and response types utilize auto-handling of params like so:
 ```golang
 type RequestParams struct {
-	PathParam string `param:"some_param,description:'a parameter'"`
+	PathParam string `param:"some_param,in=path,description:'a parameter'"`
 }
 
 type ResponseParams struct {
-	HeaderParam string `param:"my-header,description:'a response header'"`
+	HeaderParam string `param:"my-header,in=header,description:'a response header'"`
 }
 
 chimera.Post(api, "/route/{some_param}", func(req *chimera.NoBodyRequest[RequestParams]) (*chimera.NoBodyResponse[ResponseParams], error) {
