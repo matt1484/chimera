@@ -67,6 +67,9 @@ def test(path: str, header: Annotated[str, Header()] = None, body: TestBody) -> 
     return body
 ```
 
+## Docs
+There are docs on github pages hosted [here](https://matt1484.github.io/chimera/)
+
 ## TODO
 - Proper XML support
 - Multipart form support
